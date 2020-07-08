@@ -11,7 +11,7 @@ In order to build the project, you'll need to get the following libraries, and p
 - /external/sqlite/ -> SQLite3 C++ Source Code : https://www.sqlite.org/download.html
   - Copy the raw .c and .h files in the zip to the /external/sqlite/ folder.
 - /external/boost/ -> Boost C++ Source Libraries : https://www.boost.org/
-  - Unzip to the /external/boost folder and run the bootstrap bat/sh script.
+  - Unzip to the /external/boost folder and run the bootstrap bat/sh script, then run b2.exe to compile the libraries.
 
 Furthermore, place whatever FBX you want to use as the test item when debugging at
 - /sample/test.fbx
