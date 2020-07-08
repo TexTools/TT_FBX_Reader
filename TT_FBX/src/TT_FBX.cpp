@@ -33,7 +33,7 @@ inline bool file_exists(const std::string& name) {
 }
 
 
-/* 
+/**
  * Attempts to initialize the SQLite Database and FBX scene.
  * Returns 0 on success, non-zero on error.
  */
@@ -126,11 +126,31 @@ int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager,
 	return 0;
 }
 
+
+/**
+ * Shuts down the system gracefully.
+ */
+void Shutdown(int code, sqlite3* db, FbxManager* manager, const char* errorMessage = NULL) {
+
+	if (errorMessage != NULL) {
+		fprintf(stderr, "Critical Error: %s\n", errorMessage);
+	}
+
+	// Destroying the manger destroys the scene with it.
+	manager->Destroy();
+
+	// Good night DB.
+	sqlite3_close(db);
+
+	
+	// Time for sleep.
+	exit(code);
+}
+
 /**
  * Program entry point, yaaaay.
  */
 int main(int argc, char** argv) {
-
 
 	FbxManager* manager = NULL;
 	FbxScene* scene = NULL;
@@ -147,12 +167,9 @@ int main(int argc, char** argv) {
 
 
 
-	// Destroying the manger destroys the scene with it.
-	manager->Destroy();
-	
-	// Good night DB.
-	sqlite3_close(db);
 
-	// Great Success.
-	return 0;
+
+
+	// Successs~
+	Shutdown(0, db, manager);
 }
