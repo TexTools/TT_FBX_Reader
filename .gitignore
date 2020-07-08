@@ -1,0 +1,6 @@
+Debug
+Release
+TT_FBX/obj/*
+.vs
+sample/*
+TT_FBX/TT_FBX.vcxproj.*
