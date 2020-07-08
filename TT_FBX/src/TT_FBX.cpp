@@ -10,6 +10,9 @@
 // SQLite3
 #include <sqlite3.h>
 
+// Boost 
+#include <boost/regex.hpp>
+
 // Core
 #include <iostream>
 #include <string>
@@ -19,7 +22,7 @@
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-
+static const boost::regex meshRegex(".+_[0-9]\\.?[0-9]?$");
 
 inline bool file_exists(const std::string& name) {
 
@@ -158,13 +161,13 @@ void PrintNode(FbxNode* pNode) {
 	FbxDouble3 rotation = pNode->LclRotation.Get();
 	FbxDouble3 scaling = pNode->LclScaling.Get();
 
-	// Print the contents of the node.
-	printf("Node name='%s' translation='(%f, %f, %f)' rotation='(%f, %f, %f)' scaling='(%f, %f, %f)'>\n",
-		nodeName,
-		translation[0], translation[1], translation[2],
-		rotation[0], rotation[1], rotation[2],
-		scaling[0], scaling[1], scaling[2]
-	);
+	
+	if (regex_match(nodeName, meshRegex) && pNode->GetMesh() != NULL) {
+		// Print the contents of the node.
+		printf("%s\n",
+			nodeName
+		);
+	}
 
 	// Print the node's attributes.
 
@@ -196,8 +199,9 @@ int main(int argc, char** argv) {
 	// not contain any attributes.
 	FbxNode* root = scene->GetRootNode();
 	if (root) {
-		for (int i = 0; i < root->GetChildCount(); i++)
+		for (int i = 0; i < root->GetChildCount(); i++) {
 			PrintNode(root->GetChild(i));
+		}
 	}
 
 

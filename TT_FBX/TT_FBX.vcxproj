@@ -23,32 +23,32 @@
     <ProjectGuid>{726E3918-0E19-4220-9F49-24395F4DA0F5}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>TTFBX</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.18362.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -100,7 +100,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\fbx_sdk\lib\vs2017\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\fbx_sdk\lib\vs2017\x86\debug;$(SolutionDir)external\boost\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -142,7 +142,7 @@ xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\fbx_sdk\lib\vs2017\x86\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\fbx_sdk\lib\vs2017\x86\release;$(SolutionDir)external\boost\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -182,9 +182,29 @@ xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
     </Text>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\external\boost\libs\regex\src\cpp_regex_traits.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\cregex.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\c_regex_traits.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\fileiter.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\icu.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\instances.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\posix_api.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\regex.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\regex_debug.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\regex_raw_buffer.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\regex_traits_defaults.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\static_mutex.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\usinstances.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\w32_regex_traits.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\wc_regex_traits.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\wide_posix_api.cpp" />
+    <ClCompile Include="..\external\boost\libs\regex\src\winstances.cpp" />
     <ClCompile Include="..\external\sqlite\shell.c" />
     <ClCompile Include="..\external\sqlite\sqlite3.c" />
     <ClCompile Include="src\TT_FBX.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\external\boost\libs\regex\src\internals.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
