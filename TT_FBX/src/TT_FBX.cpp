@@ -37,7 +37,7 @@ inline bool file_exists(const std::string& name) {
  * Attempts to initialize the SQLite Database and FBX scene.
  * Returns 0 on success, non-zero on error.
  */
-int Init(const int argc, const char* argv[], sqlite3* db, FbxManager *manager, FbxScene* scene) {
+int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager, FbxScene** scene) {
 
 	if (argc < 2) {
 		fprintf(stderr, "No file path supplied.\n");
@@ -61,10 +61,10 @@ int Init(const int argc, const char* argv[], sqlite3* db, FbxManager *manager, F
 	}
 
 	// Create and connect to the database file.
-	rc = sqlite3_open(dbPath, &db);
+	rc = sqlite3_open(dbPath, db);
 	if (rc) {
-		fprintf(stderr, "Failed to create database: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
+		fprintf(stderr, "Failed to create database: %s\n", sqlite3_errmsg(*db));
+		sqlite3_close(*db);
 		return(103);
 	}
 
@@ -80,45 +80,45 @@ int Init(const int argc, const char* argv[], sqlite3* db, FbxManager *manager, F
 	file.close();
 
 	// Create the DB Schema.
-	rc = sqlite3_exec(db, fullSql.c_str(), NULL, 0, &zErrMsg);
+	rc = sqlite3_exec(*db, fullSql.c_str(), NULL, 0, &zErrMsg);
 	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Database creation SQL error: ", zErrMsg);
+		fprintf(stderr, "Database creation SQL error: %s", zErrMsg);
 		sqlite3_free(zErrMsg);
-		sqlite3_close(db);
+		sqlite3_close(*db);
 		return 104;
 	}
 
 
 
 	// Create the FBX SDK manager
-	manager = FbxManager::Create();
+	*manager = FbxManager::Create();
 
 	// Create an IOSettings object.
-	FbxIOSettings * ios = FbxIOSettings::Create(manager, IOSROOT);
-	manager->SetIOSettings(ios);
+	FbxIOSettings * ios = FbxIOSettings::Create(*manager, IOSROOT);
+	(*manager)->SetIOSettings(ios);
 
 	// Create an importer.
-	FbxImporter* importer  = FbxImporter::Create(manager, "");
+	FbxImporter* importer  = FbxImporter::Create(*manager, "");
 
 	// Declare the path and filename of the fidle containing the scene.
 	// In this case, we are assuming the file is in the same directory as the executable.
 
 	// Initialize the importer.
-	bool success = importer->Initialize(fbxFilePath, -1, manager->GetIOSettings());
+	bool success = importer->Initialize(fbxFilePath, -1, (*manager)->GetIOSettings());
 
 	// Use the first argument as the filename for the importer.
 	if (!success) {
 		fprintf(stderr, "Unable to load FBX file.");
-		sqlite3_close(db);
-		manager->Destroy();
+		sqlite3_close(*db);
+		(*manager)->Destroy();
 		return 105;
 	}
 
 	// Create a new scene so that it can be populated by the imported file.
-	scene = FbxScene::Create(manager, "root");
+	(*scene) = FbxScene::Create((*manager), "root");
 
 	// Import the contents of the file into the scene.
-	importer->Import(scene);
+	importer->Import((*scene));
 
 	// The file is imported; so get rid of the importer.
 	importer->Destroy();
@@ -129,15 +129,15 @@ int Init(const int argc, const char* argv[], sqlite3* db, FbxManager *manager, F
 /**
  * Program entry point, yaaaay.
  */
-int main(int argc, char* argv[]) {
+int main(int argc, char** argv) {
 
 
-	FbxManager* manager;
-	FbxScene* scene;
-	sqlite3* db;
+	FbxManager* manager = NULL;
+	FbxScene* scene = NULL;
+	sqlite3* db = NULL;
 
 	// Try to load all the things.
-	int result = Init(argc, argv, db, manager, scene);
+	int result = Init(argc, argv, &db, &manager, &scene);
 	if (result != 0) {
 		return result;
 	}
