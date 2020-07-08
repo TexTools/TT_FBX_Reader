@@ -8,7 +8,7 @@
 #include <fbxsdk.h>
 
 // SQLite3
-#include <external/sqlite3.h>
+#include <sqlite3.h>
 
 // Core
 #include <iostream>
@@ -147,6 +147,32 @@ void Shutdown(int code, sqlite3* db, FbxManager* manager, const char* errorMessa
 	exit(code);
 }
 
+
+
+/**
+ * Print a node, its attributes, and all its children recursively.
+ */
+void PrintNode(FbxNode* pNode) {
+	const char* nodeName = pNode->GetName();
+	FbxDouble3 translation = pNode->LclTranslation.Get();
+	FbxDouble3 rotation = pNode->LclRotation.Get();
+	FbxDouble3 scaling = pNode->LclScaling.Get();
+
+	// Print the contents of the node.
+	printf("Node name='%s' translation='(%f, %f, %f)' rotation='(%f, %f, %f)' scaling='(%f, %f, %f)'>\n",
+		nodeName,
+		translation[0], translation[1], translation[2],
+		rotation[0], rotation[1], rotation[2],
+		scaling[0], scaling[1], scaling[2]
+	);
+
+	// Print the node's attributes.
+
+	// Recursively print the children.
+	for (int j = 0; j < pNode->GetChildCount(); j++)
+		PrintNode(pNode->GetChild(j));
+}
+
 /**
  * Program entry point, yaaaay.
  */
@@ -165,6 +191,14 @@ int main(int argc, char** argv) {
 	// We're now ready to actually do some work.
 
 
+	// Print the nodes of the scene and their attributes recursively.
+	// Note that we are not printing the root node because it should
+	// not contain any attributes.
+	FbxNode* root = scene->GetRootNode();
+	if (root) {
+		for (int i = 0; i < root->GetChildCount(); i++)
+			PrintNode(root->GetChild(i));
+	}
 
 
 

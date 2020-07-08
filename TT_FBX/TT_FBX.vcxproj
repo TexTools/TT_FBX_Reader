@@ -93,14 +93,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FBXSDK_SHARED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\dev\fbx_sdk\include;D:\dev\TT_FBX\TT_FBX\src\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\boost\;$(ProjectDir)TT_FBX\src\</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\dev\fbx_sdk\lib\vs2017\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\fbx_sdk\lib\vs2017\x86\debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -134,7 +134,7 @@ xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FBXSDK_SHARED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\dev\fbx_sdk\include;D:\dev\TT_FBX\TT_FBX\src\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\boost\;$(ProjectDir)TT_FBX\src\</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -142,11 +142,12 @@ xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\dev\fbx_sdk\lib\vs2017\x86\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\fbx_sdk\lib\vs2017\x86\release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfbxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y /d  "$(ProjectDir)DLL\*.dll" "$(OutDir)"</Command>
+      <Command>xcopy /y /d  "$(ProjectDir)res\dll\*" "$(OutDir)"
+xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -181,12 +182,8 @@ xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sqlite\sqlite3.h" />
-    <ClInclude Include="Sqlite\sqlite3ext.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="src\external\shell.c" />
-    <ClCompile Include="src\external\sqlite3.c" />
+    <ClCompile Include="..\external\sqlite\shell.c" />
+    <ClCompile Include="..\external\sqlite\sqlite3.c" />
     <ClCompile Include="src\TT_FBX.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
