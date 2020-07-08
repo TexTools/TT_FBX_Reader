@@ -56,7 +56,7 @@ CREATE TABLE "vertexes" (
 	"bone_4_id"			INTEGER,
 	"bone_4_weight"		REAL,
 
-	PRIMARY KEY("mesh_id","part_id","vertex_id")
+	PRIMARY KEY("mesh","part","vertex_id")
 );
 
 -- Bones

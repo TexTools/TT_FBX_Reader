@@ -175,9 +175,10 @@ xcopy /y /d  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
     <None Include="DLL\sqlite3.dll">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="SQL\CreateDB.SQL">
+    <Text Include="res\sql\CreateDB.SQL">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
-    </None>
+      <FileType>Document</FileType>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sqlite\sqlite3.h" />
