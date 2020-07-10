@@ -35,6 +35,7 @@ sqlite3* db;
 FbxManager* manager;
 FbxScene* scene;
 std::vector<std::string> boneNames;
+std::map<int, std::map<int, std::string>> meshParts;
 
 inline bool file_exists(const std::string& name) {
 
@@ -378,7 +379,7 @@ FbxSkin* GetSkin(FbxMesh* mesh) {
 void RunSql(std::string query) {
 
 	char* err;
-	int result = sqlite3_exec(db, query.c_str(), NULL, 0, &err);
+	int result = sqlite3_exec(db, query.c_str(), NULL, 0, &err);	
 	if (result != SQLITE_OK) {
 		fprintf(stderr, "SQLite Error: %s", err);
 		sqlite3_free(err);
@@ -391,19 +392,81 @@ void RunSql(sqlite3_stmt* statement) {
 
 	int result = sqlite3_step(statement);
 	if (result != SQLITE_DONE) {
-		fprintf(stderr, "SQLite Error: %i", result);
+		std::string err = sqlite3_errmsg(db);
+		fprintf(stderr, "SQLite Error: %s", err.c_str());
 		sqlite3_finalize(statement);
 		Shutdown(201, "SQLite Error.");
 	}
 	sqlite3_reset(statement);
 }
 
-
 // Makes an Sqlite3 statement object from a query string.
 sqlite3_stmt* MakeSqlStatement(std::string query) {
 	sqlite3_stmt* stmt;
 	sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
 	return stmt;
+}
+
+// Write a non-critical warning message to the DB and stdout.
+void WriteWarning(std::string warning) {
+	fprintf(stderr, "Warning: %s\n", warning.c_str());
+
+	// Load the triangle indicies into the SQLite DB.
+	std::string insertStatement = "insert into warnings (text) values (?1)";
+	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
+	sqlite3_bind_text(query, 1, warning.c_str(), warning.length(), NULL);
+	RunSql(query);
+	sqlite3_finalize(query);
+}
+
+
+// Checks if a mesh part already exists.
+bool MeshPartExists(int mesh, int part) {
+
+	// Does mesh exist?
+	std::map<int, std::map<int, std::string>>::iterator it = meshParts.find(mesh);
+	if (it == meshParts.end()) return false;
+
+	std::map<int, std::string> partList = it->second;
+
+	// Does part exist?
+	std::map<int, std::string>::iterator it2 = partList.find(part);
+	if (it2 == partList.end()) return false;
+
+
+	return true;
+}
+
+
+// Adds a mesh part to the mesh parts dictionary
+void MakeMeshPart(int mesh, int part, std::string name) {
+
+	std::map<int, std::string> partList;
+
+	// Create mesh entry if needed.
+	std::map<int, std::map<int, std::string>>::iterator it = meshParts.find(mesh);
+	if (it == meshParts.end()) {
+		partList = std::map<int, std::string>();
+		meshParts.insert(make_pair(mesh, partList));
+	}
+	else {
+		partList = it->second;
+	}
+
+	// Insert mesh name
+	partList.insert(make_pair(part, name));
+	meshParts[mesh] = partList;
+	
+	// Insert the mesh into the SQlite DB.
+
+	// Load the triangle indicies into the SQLite DB.
+	std::string insertStatement = "insert into parts (mesh, part, name) values (?1, ?2, ?3)";
+	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
+	sqlite3_bind_int(query, 1, mesh);
+	sqlite3_bind_int(query, 2, part);
+	sqlite3_bind_text(query, 3, name.c_str(), name.length(), NULL);
+	RunSql(query);
+	sqlite3_finalize(query);
 }
 
 /**
@@ -417,13 +480,13 @@ void SaveNode(FbxNode* node) {
 	int numIndices = mesh->GetPolygonVertexCount();
 	if (numIndices == 0 || numVertices == 0) {
 		// Mesh does not actually have any tris.
-		// TODO: Pump warning here.
+		WriteWarning("Ignored mesh: " + meshName + " - Mesh had no vertices/triangles.");
 		return;
 	}
 	FbxSkin* skin = GetSkin(mesh);
 	if (skin == NULL) {
 		// Mesh does not actually have a skin.
-		// TODO: Pump warning here.
+		WriteWarning("Ignored mesh: " + meshName + " - Mesh did not have a valid skin element.");
 		return;
 	}
 
@@ -442,8 +505,14 @@ void SaveNode(FbxNode* node) {
 		partNum = std::atoi(partMatch.c_str());;
 	}
 
+	if (MeshPartExists(meshNum, partNum)) {
+		// Mesh part already exists.
+		WriteWarning("Ignored mesh: " + meshName + " - Mesh " + std::to_string(meshNum) + " Part " + std::to_string(partNum) + " already exists.");
+		return;
+	}
 
-
+	// Add the mesh part.
+	MakeMeshPart(meshNum, partNum, meshName);
 
 	// Create a vector the side of the control point array to store the weights.
 	std::vector<TTWeightSet> weightSets;
@@ -546,17 +615,73 @@ void SaveNode(FbxNode* node) {
 	// Start by writing the tri indexes.
 	const std::string startTransaction = "BEGIN TRANSACTION;";
 	const std::string endTransaction = "COMMIT;";
-	const std::string insertStatement = "insert into indices (mesh, part, index_id, vertex_id) values (?1,?2,?3,?4)";
-	
+
+	// Load the triangle indicies into the SQLite DB.
+	std::string insertStatement = "insert into indices (mesh, part, index_id, vertex_id) values (?1,?2,?3,?4)";
 	RunSql(startTransaction);
 	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
 	for (unsigned int i = 0; i < ttTriIndexes.size(); i++) {
 		sqlite3_bind_int(query, 1, meshNum);
 		sqlite3_bind_int(query, 2, partNum);
-		sqlite3_bind_int(query, 2, i);
-		sqlite3_bind_int(query, 2, ttTriIndexes[i]);
+		sqlite3_bind_int(query, 3, i);
+		sqlite3_bind_int(query, 4, ttTriIndexes[i]);
+		RunSql(query);
 	}
 	sqlite3_finalize(query);
+
+	// Load the Vertices into the SQLite DB.
+	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight) ";
+	insertStatement += " values(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)";
+	query = MakeSqlStatement(insertStatement);
+	for (unsigned int i = 0; i < ttVerticies.size(); i++) {
+		sqlite3_bind_int(query, 1, meshNum);
+		sqlite3_bind_int(query, 2, partNum);
+		sqlite3_bind_int(query, 3, i);
+
+		sqlite3_bind_double(query, 4, ttVerticies[i].Position[0]);
+		sqlite3_bind_double(query, 5, ttVerticies[i].Position[1]);
+		sqlite3_bind_double(query, 6, ttVerticies[i].Position[2]);
+
+		sqlite3_bind_double(query, 7, ttVerticies[i].Normal[0]);
+		sqlite3_bind_double(query, 8, ttVerticies[i].Normal[1]);
+		sqlite3_bind_double(query, 9, ttVerticies[i].Normal[2]);
+
+		sqlite3_bind_double(query, 10, ttVerticies[i].VertexColor.mRed);
+		sqlite3_bind_double(query, 11, ttVerticies[i].VertexColor.mGreen);
+		sqlite3_bind_double(query, 12, ttVerticies[i].VertexColor.mBlue);
+		sqlite3_bind_double(query, 13, ttVerticies[i].VertexColor.mAlpha);
+
+		sqlite3_bind_double(query, 14, ttVerticies[i].UV1[0]);
+		sqlite3_bind_double(query, 15, ttVerticies[i].UV1[1]);
+
+		sqlite3_bind_double(query, 16, ttVerticies[i].UV2[0]);
+		sqlite3_bind_double(query, 17, ttVerticies[i].UV2[1]);
+
+		if (ttVerticies[i].WeightSet.Weights[0].BoneId >= 0) {
+			sqlite3_bind_int(query, 18, ttVerticies[i].WeightSet.Weights[0].BoneId);
+			sqlite3_bind_double(query, 19, ttVerticies[i].WeightSet.Weights[0].Weight);
+		}
+
+		if (ttVerticies[i].WeightSet.Weights[1].BoneId >= 0) {
+			sqlite3_bind_int(query, 20, ttVerticies[i].WeightSet.Weights[1].BoneId);
+			sqlite3_bind_double(query, 21, ttVerticies[i].WeightSet.Weights[1].Weight);
+		}
+
+		if (ttVerticies[i].WeightSet.Weights[2].BoneId >= 0) {
+			sqlite3_bind_int(query, 22, ttVerticies[i].WeightSet.Weights[2].BoneId);
+			sqlite3_bind_double(query, 23, ttVerticies[i].WeightSet.Weights[2].Weight);
+		}
+
+		if (ttVerticies[i].WeightSet.Weights[3].BoneId >= 0) {
+			sqlite3_bind_int(query, 24, ttVerticies[i].WeightSet.Weights[3].BoneId);
+			sqlite3_bind_double(query, 25, ttVerticies[i].WeightSet.Weights[3].Weight);
+		}
+
+
+		RunSql(query);
+	}
+	sqlite3_finalize(query);
+
 	RunSql(endTransaction);
 
 
@@ -606,6 +731,17 @@ int main(int argc, char** argv) {
 			TestNode(root->GetChild(i));
 		}
 	}
+
+	// Save bones to the SQLite DB
+	std::string insertStatement = "insert into bones (bone_id, name) values (?1,?2)";
+	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
+	for (unsigned int i = 0; i < boneNames.size(); i++) {
+		sqlite3_bind_int(query, 1, i);
+		sqlite3_bind_text(query, 2, boneNames[i].c_str(), boneNames[i].length(), NULL);
+		RunSql(query);
+	}
+	sqlite3_finalize(query);
+
 
 	// Successs~
 	Shutdown(0);

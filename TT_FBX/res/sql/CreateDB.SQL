@@ -1,9 +1,14 @@
--- Meta table for storing information such as 
--- Warning or Error codes, etc.
+-- Meta table for storing any meta level information not already obviously handled by the table structure.
+-- Ex. Author, path to original file, etc.
 CREATE TABLE "meta" (
 	"key" TEXT NOT NULL UNIQUE,
 	"value" TEXT,
 	PRIMARY KEY("key")
+);
+
+-- Warnings that should be proc'd by TexTools.
+CREATE TABLE "warnings" (
+	"text" TEXT NOT NULL
 );
 
 -- The Triangle Indices
@@ -19,15 +24,15 @@ CREATE TABLE "indices" (
 
 
 -- Vertex Data
-CREATE TABLE "vertexes" (
-	"vertex_id"	INTEGER NOT NULL,
+CREATE TABLE "vertices" (
 	"mesh"	INTEGER NOT NULL,
 	"part"   INTEGER NOT NULL,
+	"vertex_id"	INTEGER NOT NULL,
 
 	-- Position
-	"pos_x"	REAL NOT NULL,
-	"pos_y"	REAL NOT NULL,
-	"pos_z"	REAL NOT NULL,
+	"position_x"	REAL NOT NULL,
+	"position_y"	REAL NOT NULL,
+	"position_z"	REAL NOT NULL,
 
 	-- Normal
 	"normal_x"	REAL NOT NULL,
@@ -42,7 +47,7 @@ CREATE TABLE "vertexes" (
 
 	-- UV Coordinates
 	"uv_1_u"	REAL NOT NULL,
-	"uv_y_v"	REAL NOT NULL,
+	"uv_1_v"	REAL NOT NULL,
 	"uv_2_u"	REAL NOT NULL,
 	"uv_2_v"	REAL NOT NULL,
 
@@ -57,6 +62,15 @@ CREATE TABLE "vertexes" (
 	"bone_4_weight"		REAL,
 
 	PRIMARY KEY("mesh","part","vertex_id")
+);
+
+-- Parts
+CREATE TABLE "parts" (
+	"mesh"	INTEGER NOT NULL,
+	"part"   INTEGER NOT NULL,
+	"name"   TEXT,
+
+	Primary KEY("mesh", "part")
 );
 
 -- Bones
