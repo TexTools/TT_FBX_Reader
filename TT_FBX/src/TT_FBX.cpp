@@ -19,10 +19,22 @@
 #include <fstream>
 #include <stdio.h>
 #include <memory>
+#include <exception>
+#include <vector>
+
+// Custom
+#include <tt_vertex.h>
+
+using namespace fbxsdk;
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-static const boost::regex meshRegex(".+_[0-9]\\.?[0-9]?$");
+const boost::regex meshRegex(".+_[0-9]\\.?[0-9]?$");
+const boost::regex extractMeshInfoRegex(".+_([0-9])\\.?([0-9])?$");
+sqlite3* db;
+FbxManager* manager;
+FbxScene* scene;
+std::vector<std::string> boneNames;
 
 inline bool file_exists(const std::string& name) {
 
@@ -40,7 +52,7 @@ inline bool file_exists(const std::string& name) {
  * Attempts to initialize the SQLite Database and FBX scene.
  * Returns 0 on success, non-zero on error.
  */
-int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager, FbxScene** scene) {
+int Init(const int argc,  char** const argv, sqlite3** database, FbxManager** manager, FbxScene** scene) {
 
 	if (argc < 2) {
 		fprintf(stderr, "No file path supplied.\n");
@@ -64,10 +76,10 @@ int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager,
 	}
 
 	// Create and connect to the database file.
-	rc = sqlite3_open(dbPath, db);
+	rc = sqlite3_open(dbPath, database);
 	if (rc) {
-		fprintf(stderr, "Failed to create database: %s\n", sqlite3_errmsg(*db));
-		sqlite3_close(*db);
+		fprintf(stderr, "Failed to create database: %s\n", sqlite3_errmsg(*database));
+		sqlite3_close(*database);
 		return(103);
 	}
 
@@ -83,11 +95,11 @@ int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager,
 	file.close();
 
 	// Create the DB Schema.
-	rc = sqlite3_exec(*db, fullSql.c_str(), NULL, 0, &zErrMsg);
+	rc = sqlite3_exec(*database, fullSql.c_str(), NULL, 0, &zErrMsg);
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "Database creation SQL error: %s", zErrMsg);
 		sqlite3_free(zErrMsg);
-		sqlite3_close(*db);
+		sqlite3_close(*database);
 		return 104;
 	}
 
@@ -112,7 +124,7 @@ int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager,
 	// Use the first argument as the filename for the importer.
 	if (!success) {
 		fprintf(stderr, "Unable to load FBX file.");
-		sqlite3_close(*db);
+		sqlite3_close(*database);
 		(*manager)->Destroy();
 		return 105;
 	}
@@ -133,13 +145,14 @@ int Init(const int argc,  char** const argv, sqlite3** db, FbxManager** manager,
 /**
  * Shuts down the system gracefully.
  */
-void Shutdown(int code, sqlite3* db, FbxManager* manager, const char* errorMessage = NULL) {
+void Shutdown(int code, const char* errorMessage = NULL) {
 
 	if (errorMessage != NULL) {
-		fprintf(stderr, "Critical Error: %s\n", errorMessage);
+		fprintf(stderr, "\nCritical Error: %s\n", errorMessage);
 	}
 
 	// Destroying the manger destroys the scene with it.
+	int whatever = manager->GetDocumentCount();
 	manager->Destroy();
 
 	// Good night DB.
@@ -151,11 +164,408 @@ void Shutdown(int code, sqlite3* db, FbxManager* manager, const char* errorMessa
 }
 
 
+int GetDirectIndex(FbxMesh* mesh, FbxLayerElementTemplate<FbxVector4>* layerElement, int index_id) {
+
+	if (layerElement == NULL) {
+		return -1;
+	}
+
+	FbxLayerElement::EMappingMode mapMode = layerElement->GetMappingMode();
+	FbxLayerElement::EReferenceMode refMode = layerElement->GetReferenceMode();
+	// Pick which index we're using.
+	int index = 0;
+	if (mapMode == FbxLayerElement::eByControlPoint) {
+		index = mesh->GetPolygonVertex(index_id / 3, index_id % 3);
+	}
+	else if (mapMode == FbxLayerElement::eByPolygonVertex) {
+		index = index_id;
+	}
+	else {
+		return -1;
+	}
+
+
+	FbxVector4 Normal;
+	// Run it through the appropriate direct/indirect
+	if (refMode == FbxLayerElement::eDirect) {
+		index = index;
+	}
+	else if (refMode == FbxLayerElement::eIndexToDirect) {
+		index = layerElement->GetIndexArray().GetAt(index);
+	}
+	else {
+		return -1;
+	}
+	return index;
+}
+
+int GetDirectIndex(FbxMesh* mesh, FbxLayerElementTemplate<FbxVector2>* layerElement, int index_id) {
+
+	if (layerElement == NULL) {
+		return -1;
+	}
+
+	FbxLayerElement::EMappingMode mapMode = layerElement->GetMappingMode();
+	FbxLayerElement::EReferenceMode refMode = layerElement->GetReferenceMode();
+	// Pick which index we're using.
+	int index = 0;
+	if (mapMode == FbxLayerElement::eByControlPoint) {
+		index = mesh->GetPolygonVertex(index_id / 3, index_id % 3);
+	}
+	else if (mapMode == FbxLayerElement::eByPolygonVertex) {
+		index = index_id;
+	}
+	else {
+		return -1;
+	}
+
+
+	FbxVector4 Normal;
+	// Run it through the appropriate direct/indirect
+	if (refMode == FbxLayerElement::eDirect) {
+		index = index;
+	}
+	else if (refMode == FbxLayerElement::eIndexToDirect) {
+		index = layerElement->GetIndexArray().GetAt(index);
+	}
+	else {
+		return -1;
+	}
+	return index;
+}
+
+int GetDirectIndex(FbxMesh* mesh, FbxLayerElementTemplate<FbxColor>* layerElement, int index_id) {
+
+	if (layerElement == NULL) {
+		return -1;
+	}
+
+	FbxLayerElement::EMappingMode mapMode = layerElement->GetMappingMode();
+	FbxLayerElement::EReferenceMode refMode = layerElement->GetReferenceMode();
+	// Pick which index we're using.
+	int index = 0;
+	if (mapMode == FbxLayerElement::eByControlPoint) {
+		index = mesh->GetPolygonVertex(index_id / 3, index_id % 3);
+	}
+	else if (mapMode == FbxLayerElement::eByPolygonVertex) {
+		index = index_id;
+	}
+	else {
+		return -1;
+	}
+
+
+	FbxVector4 Normal;
+	// Run it through the appropriate direct/indirect
+	if (refMode == FbxLayerElement::eDirect) {
+		index = index;
+	}
+	else if (refMode == FbxLayerElement::eIndexToDirect) {
+		index = layerElement->GetIndexArray().GetAt(index);
+	}
+	else {
+		return -1;
+	}
+	return index;
+}
+
+// Get the raw position value for a triangle index.
+FbxVector4 GetPosition(FbxMesh* const mesh, int index_id) {
+	FbxVector4 def = FbxVector4(0,0,0,0);
+	if (mesh->GetLayerCount() < 1) {
+		return def;
+	}
+	FbxLayer* layer = mesh->GetLayer(0);
+	int vertex_id = mesh->GetPolygonVertex(index_id / 3, index_id % 3);
+	FbxVector4 position = mesh->GetControlPointAt(vertex_id);
+	return position;
+}
+
+// Get the raw normal value for a triangle index.
+FbxVector4 GetNormal(FbxMesh* const mesh, int index_id) {
+	FbxVector4 def = FbxVector4(0,0,0, 1.0);
+	if (mesh->GetLayerCount() < 1) {
+		return def;
+	}
+	FbxLayer* layer = mesh->GetLayer(0);
+	FbxLayerElementNormal* layerElement = layer->GetNormals();
+	int index = GetDirectIndex(mesh, layerElement, index_id);
+	return index == -1 ? def : layerElement->GetDirectArray().GetAt(index);
+}
+
+// Get the raw uv1 value for a triangle index.
+FbxVector2 GetUV1(FbxMesh* const mesh, int index_id) {
+	FbxVector2 def = FbxVector2(0, 0);
+	if (mesh->GetLayerCount() < 1) {
+		return def;
+	}
+	FbxLayer* layer = mesh->GetLayer(0);
+	FbxLayerElementUV* uvs = layer->GetUVs();
+	int index = GetDirectIndex(mesh, uvs, index_id);
+	return index == -1 ? def : uvs->GetDirectArray().GetAt(index);
+}
+
+// Get the raw uv2 value for a triangle index.
+FbxVector2 GetUV2(FbxMesh* const mesh, int index_id) {
+	FbxVector2 def = FbxVector2(0, 0);
+	if (mesh->GetLayerCount() < 2) {
+		return def;
+	}
+	FbxLayer* layer = mesh->GetLayer(1);
+	FbxLayerElementUV* uvs = layer->GetUVs();
+	int index = GetDirectIndex(mesh, uvs, index_id);
+	return index == -1 ? def : uvs->GetDirectArray().GetAt(index);
+}
+
+// Get the raw uv2 value for a triangle index.
+FbxVector2 GetUV3(FbxMesh* const mesh, int index_id) {
+	FbxVector2 def = FbxVector2(1, 0);
+	if (mesh->GetLayerCount() < 3) {
+		return def;
+	}
+	FbxLayer* layer = mesh->GetLayer(2);
+	FbxLayerElementUV* uvs = layer->GetUVs();
+	int index = GetDirectIndex(mesh, uvs, index_id);
+	return index == -1 ? def : uvs->GetDirectArray().GetAt(index);
+}
+
+// Gets the raw vertex color value for a triangle index.
+FbxColor GetVertexColor(FbxMesh* const mesh, int index_id) {
+	FbxColor def = FbxColor(1,1,1,1);
+	if (mesh->GetLayerCount() < 1) {
+		return def;
+	}
+	FbxLayer* layer = mesh->GetLayer(0);
+	FbxLayerElementVertexColor* layerElement = layer->GetVertexColors();
+	int index = GetDirectIndex(mesh, layerElement, index_id);
+	return index == -1 ? def : layerElement->GetDirectArray().GetAt(index);
+}
+
+// Retreives the shared bone Id for a given bone (added to the bone Id list if needed)
+int GetBoneId(std::string boneName) {
+	// Get
+	int boneIdx = -1;
+	for (unsigned int ni = 0; ni < boneNames.size(); ni++) {
+		std::string bName = boneNames[ni];
+		if (bName.compare(boneName) == 0) {
+			boneIdx = ni;
+			break;
+		}
+	}
+
+	if (boneIdx == -1) {
+		boneNames.push_back(boneName);
+		boneIdx = boneNames.size() - 1;
+	}
+	return boneIdx;
+}
+
+// Gets the first Skin element in a mesh.
+FbxSkin* GetSkin(FbxMesh* mesh) {
+
+	int count = mesh->GetDeformerCount();
+	for (int i = 0; i < count; i++) {
+		FbxDeformer* d = mesh->GetDeformer(i);
+		FbxDeformer::EDeformerType dType = d->GetDeformerType();
+		if (dType == FbxDeformer::eSkin) {
+			return (FbxSkin*)d;
+		}
+	}
+	return NULL;
+}
+
+// Runs a simple pass/fail query with no results.
+void RunSql(std::string query) {
+
+	char* err;
+	int result = sqlite3_exec(db, query.c_str(), NULL, 0, &err);
+	if (result != SQLITE_OK) {
+		fprintf(stderr, "SQLite Error: %s", err);
+		sqlite3_free(err);
+		Shutdown(201, "SQLite Error.");
+	}
+}
+
+// Runs a simple pass/fail query with no results.
+void RunSql(sqlite3_stmt* statement) {
+
+	int result = sqlite3_step(statement);
+	if (result != SQLITE_DONE) {
+		fprintf(stderr, "SQLite Error: %i", result);
+		sqlite3_finalize(statement);
+		Shutdown(201, "SQLite Error.");
+	}
+	sqlite3_reset(statement);
+}
+
+
+// Makes an Sqlite3 statement object from a query string.
+sqlite3_stmt* MakeSqlStatement(std::string query) {
+	sqlite3_stmt* stmt;
+	sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, NULL);
+	return stmt;
+}
 
 /**
- * Print a node, its attributes, and all its children recursively.
+ * Saves the given node to the SQLite DB. 
  */
-void PrintNode(FbxNode* pNode) {
+void SaveNode(FbxNode* node) {
+	FbxMesh* mesh = node->GetMesh();
+	std::string meshName = node->GetName();
+
+	int numVertices = mesh->GetControlPointsCount();
+	int numIndices = mesh->GetPolygonVertexCount();
+	if (numIndices == 0 || numVertices == 0) {
+		// Mesh does not actually have any tris.
+		// TODO: Pump warning here.
+		return;
+	}
+	FbxSkin* skin = GetSkin(mesh);
+	if (skin == NULL) {
+		// Mesh does not actually have a skin.
+		// TODO: Pump warning here.
+		return;
+	}
+
+	boost::match_results<std::string::const_iterator> results;
+	bool success = regex_match(meshName, results, extractMeshInfoRegex);
+
+	// Somehow we got here with a badly named mesh.
+	if (!success) return;
+	std::string meshMatch = results[1].str();
+	std::string partMatch = results[2].str();
+
+	
+	int meshNum = std::atoi(meshMatch.c_str());;
+	int partNum = 0;
+	if (partMatch != "") {
+		partNum = std::atoi(partMatch.c_str());;
+	}
+
+
+
+
+	// Create a vector the side of the control point array to store the weights.
+	std::vector<TTWeightSet> weightSets;
+	weightSets.resize(mesh->GetControlPointsCount());
+
+	// Vector of [control point index] => [Set of tri indexes that reference it.
+	std::vector<std::vector<int>> controlToPolyArray;
+	controlToPolyArray.resize(mesh->GetControlPointsCount());
+
+	// Loop all tri indices and add them to the appropriate array.
+	for (int i = 0; i < numIndices; i++) {
+		int controlPointIndex = mesh->GetPolygonVertex(i / 3, i % 3);
+		controlToPolyArray[controlPointIndex].push_back(i);
+	}
+
+	int numClusters = skin->GetClusterCount();
+	// Loop all the clusters and populate the weight sets.
+	for (int i = 0; i < numClusters; i++) {
+		std::string name = skin->GetCluster(i)->GetLink()->GetName();
+		int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
+
+		int boneIdx = GetBoneId(name);
+
+
+		for (int vi = 0; vi < affectedVertCount; vi++) {
+			int cpIndex = skin->GetCluster(i)->GetControlPointIndices()[vi];
+			double weight = skin->GetCluster(i)->GetControlPointWeights()[vi];
+			weightSets[cpIndex].Add(boneIdx, weight);
+		}
+	}
+
+
+	std::vector<TTVertex> ttVerticies;
+	std::vector<int> ttTriIndexes;
+	ttTriIndexes.resize(numIndices);
+
+	// Time to convert all the data to TTVertices.
+	// Start by looping over the groups of shared vertices.
+	unsigned int vertCount = controlToPolyArray.size();
+	for (unsigned int cpi = 0; cpi < vertCount; cpi++) {
+		unsigned int sharedIndexCount = controlToPolyArray[cpi].size();
+		unsigned int oldSize = ttVerticies.size();
+
+		// No indices, this is an orphaned control point, skip it.
+		if (sharedIndexCount == 0) return;
+
+		// Setup vertex list
+		std::vector<TTVertex> sharedVerts;
+		
+
+		// Loop all tri indices in that point to that control point.
+		for (unsigned ti = 0; ti < sharedIndexCount; ti++) {
+
+			int indexId = controlToPolyArray[cpi][ti];
+
+			// Build our own vertex.
+			TTVertex myVert;
+			int controlPointIndex = mesh->GetPolygonVertex(indexId / 3, indexId % 3);
+			myVert.Position = GetPosition(mesh, indexId);
+			myVert.Normal = GetNormal(mesh, indexId);
+			myVert.VertexColor = GetVertexColor(mesh, indexId);
+			myVert.UV1 = GetUV1(mesh, indexId);
+			myVert.UV2 = GetUV2(mesh, indexId);
+			myVert.WeightSet = weightSets[controlPointIndex];
+
+			// Loop through the shared vertices to see if we already have an identical entry.
+			int sharedVertToUse = -1;
+			for (unsigned int svi = 0; svi < sharedVerts.size(); svi++) {
+				TTVertex other = sharedVerts[svi];
+				if (myVert == other) {
+					sharedVertToUse = svi;
+					break;
+				}
+			}
+
+			// We are a unique vertex.
+			if (sharedVertToUse == -1)
+			{
+				sharedVerts.push_back(myVert);
+				sharedVertToUse = sharedVerts.size() - 1;
+			}
+
+			// Assign the triangle index the correct new tt_vertex index to use.
+			ttTriIndexes[indexId] = sharedVertToUse + oldSize;
+
+		}
+
+		// Push all our new vertices into the main list.
+		ttVerticies.resize(oldSize + sharedVerts.size());
+		for (unsigned int svi = 0; svi < sharedVerts.size(); svi++) {
+			ttVerticies[oldSize + svi] = sharedVerts[svi];
+		}
+	}
+
+	// We now have a fully populated TT Vertex list
+	// And a fully populated triangle Index list that references it.
+	int asdf = 4;
+	asdf++;
+
+	// Start by writing the tri indexes.
+	const std::string startTransaction = "BEGIN TRANSACTION;";
+	const std::string endTransaction = "COMMIT;";
+	const std::string insertStatement = "insert into indices (mesh, part, index_id, vertex_id) values (?1,?2,?3,?4)";
+	
+	RunSql(startTransaction);
+	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
+	for (unsigned int i = 0; i < ttTriIndexes.size(); i++) {
+		sqlite3_bind_int(query, 1, meshNum);
+		sqlite3_bind_int(query, 2, partNum);
+		sqlite3_bind_int(query, 2, i);
+		sqlite3_bind_int(query, 2, ttTriIndexes[i]);
+	}
+	sqlite3_finalize(query);
+	RunSql(endTransaction);
+
+
+}
+
+/**
+ * Recursively scans the node tree for nodes that match our Regex, then pipes them to the save function.
+ */
+void TestNode(FbxNode* pNode) {
 	const char* nodeName = pNode->GetName();
 	FbxDouble3 translation = pNode->LclTranslation.Get();
 	FbxDouble3 rotation = pNode->LclRotation.Get();
@@ -164,16 +574,14 @@ void PrintNode(FbxNode* pNode) {
 	
 	if (regex_match(nodeName, meshRegex) && pNode->GetMesh() != NULL) {
 		// Print the contents of the node.
-		printf("%s\n",
-			nodeName
-		);
+		SaveNode(pNode);
 	}
 
 	// Print the node's attributes.
 
 	// Recursively print the children.
 	for (int j = 0; j < pNode->GetChildCount(); j++)
-		PrintNode(pNode->GetChild(j));
+		TestNode(pNode->GetChild(j));
 }
 
 /**
@@ -181,16 +589,11 @@ void PrintNode(FbxNode* pNode) {
  */
 int main(int argc, char** argv) {
 
-	FbxManager* manager = NULL;
-	FbxScene* scene = NULL;
-	sqlite3* db = NULL;
-
 	// Try to load all the things.
 	int result = Init(argc, argv, &db, &manager, &scene);
 	if (result != 0) {
 		return result;
 	}
-
 	// We're now ready to actually do some work.
 
 
@@ -200,14 +603,10 @@ int main(int argc, char** argv) {
 	FbxNode* root = scene->GetRootNode();
 	if (root) {
 		for (int i = 0; i < root->GetChildCount(); i++) {
-			PrintNode(root->GetChild(i));
+			TestNode(root->GetChild(i));
 		}
 	}
 
-
-
-
-
 	// Successs~
-	Shutdown(0, db, manager);
+	Shutdown(0);
 }
