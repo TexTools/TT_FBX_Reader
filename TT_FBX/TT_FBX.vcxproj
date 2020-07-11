@@ -179,32 +179,15 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
     <Text Include="res\sql\CreateDB.SQL">
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
       <FileType>Document</FileType>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</DeploymentContent>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\external\boost\libs\regex\src\cpp_regex_traits.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\cregex.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\c_regex_traits.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\fileiter.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\icu.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\instances.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\posix_api.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\regex.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\regex_debug.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\regex_raw_buffer.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\regex_traits_defaults.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\static_mutex.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\usinstances.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\w32_regex_traits.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\wc_regex_traits.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\wide_posix_api.cpp" />
-    <ClCompile Include="..\external\boost\libs\regex\src\winstances.cpp" />
     <ClCompile Include="..\external\sqlite\shell.c" />
     <ClCompile Include="..\external\sqlite\sqlite3.c" />
     <ClCompile Include="src\TT_FBX.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\external\boost\libs\regex\src\internals.hpp" />
     <ClInclude Include="src\tt_vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

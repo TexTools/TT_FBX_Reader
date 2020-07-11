@@ -10,9 +10,6 @@
 // SQLite3
 #include <sqlite3.h>
 
-// Boost 
-#include <boost/regex.hpp>
-
 // Core
 #include <iostream>
 #include <string>
@@ -21,6 +18,8 @@
 #include <memory>
 #include <exception>
 #include <vector>
+#include <map>
+#include <regex>
 
 // Custom
 #include <tt_vertex.h>
@@ -29,12 +28,12 @@ using namespace fbxsdk;
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-const boost::regex meshRegex(".+_[0-9]\\.?[0-9]?$");
-const boost::regex extractMeshInfoRegex(".+_([0-9])\\.?([0-9])?$");
+const std::regex meshRegex(".+_[0-9]\\.?[0-9]?$");
+const std::regex extractMeshInfoRegex(".+_([0-9])\\.?([0-9])?$");
 sqlite3* db;
 FbxManager* manager;
 FbxScene* scene;
-std::vector<std::string> boneNames;
+std::vector<std::vector<std::string>> boneNames;
 std::map<int, std::map<int, std::string>> meshParts;
 
 inline bool file_exists(const std::string& name) {
@@ -343,11 +342,16 @@ FbxColor GetVertexColor(FbxMesh* const mesh, int index_id) {
 }
 
 // Retreives the shared bone Id for a given bone (added to the bone Id list if needed)
-int GetBoneId(std::string boneName) {
+int GetBoneId(int mesh, std::string boneName) {
+	if (boneNames.size() <= (unsigned int) mesh) {
+		std::vector<std::string> n;
+		boneNames.push_back(n);
+	}
+
 	// Get
 	int boneIdx = -1;
-	for (unsigned int ni = 0; ni < boneNames.size(); ni++) {
-		std::string bName = boneNames[ni];
+	for (unsigned int ni = 0; ni < boneNames[mesh].size(); ni++) {
+		std::string bName = boneNames[mesh][ni];
 		if (bName.compare(boneName) == 0) {
 			boneIdx = ni;
 			break;
@@ -355,8 +359,8 @@ int GetBoneId(std::string boneName) {
 	}
 
 	if (boneIdx == -1) {
-		boneNames.push_back(boneName);
-		boneIdx = boneNames.size() - 1;
+		boneNames[mesh].push_back(boneName);
+		boneIdx = boneNames[mesh].size() - 1;
 	}
 	return boneIdx;
 }
@@ -490,13 +494,17 @@ void SaveNode(FbxNode* node) {
 		return;
 	}
 
-	boost::match_results<std::string::const_iterator> results;
-	bool success = regex_match(meshName, results, extractMeshInfoRegex);
+	//boost::match_results<std::string::const_iterator> results;
+
+	std::smatch m;
+
+	bool success = std::regex_match(meshName, m, extractMeshInfoRegex);
 
 	// Somehow we got here with a badly named mesh.
 	if (!success) return;
-	std::string meshMatch = results[1].str();
-	std::string partMatch = results[2].str();
+
+	std::string meshMatch = m[1];
+	std::string partMatch = m[2];
 
 	
 	int meshNum = std::atoi(meshMatch.c_str());;
@@ -534,7 +542,7 @@ void SaveNode(FbxNode* node) {
 		std::string name = skin->GetCluster(i)->GetLink()->GetName();
 		int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
 
-		int boneIdx = GetBoneId(name);
+		int boneIdx = GetBoneId(meshNum, name);
 
 
 		for (int vi = 0; vi < affectedVertCount; vi++) {
@@ -696,7 +704,6 @@ void TestNode(FbxNode* pNode) {
 	FbxDouble3 rotation = pNode->LclRotation.Get();
 	FbxDouble3 scaling = pNode->LclScaling.Get();
 
-	
 	if (regex_match(nodeName, meshRegex) && pNode->GetMesh() != NULL) {
 		// Print the contents of the node.
 		SaveNode(pNode);
@@ -733,12 +740,15 @@ int main(int argc, char** argv) {
 	}
 
 	// Save bones to the SQLite DB
-	std::string insertStatement = "insert into bones (bone_id, name) values (?1,?2)";
+	std::string insertStatement = "insert into bones (mesh, bone_id, name) values (?1,?2,?3)";
 	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
-	for (unsigned int i = 0; i < boneNames.size(); i++) {
-		sqlite3_bind_int(query, 1, i);
-		sqlite3_bind_text(query, 2, boneNames[i].c_str(), boneNames[i].length(), NULL);
-		RunSql(query);
+	for (unsigned int mi = 0; mi < boneNames.size(); mi++) {
+		for (unsigned int bi = 0; bi < boneNames[mi].size(); bi++) {
+			sqlite3_bind_int(query, 1, mi);
+			sqlite3_bind_int(query, 2, bi);
+			sqlite3_bind_text(query, 3, boneNames[mi][bi].c_str(), boneNames[mi][bi].length(), NULL);
+			RunSql(query);
+		}
 	}
 	sqlite3_finalize(query);
 
