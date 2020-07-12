@@ -402,6 +402,7 @@ void RunSql(sqlite3_stmt* statement) {
 		Shutdown(201, "SQLite Error.");
 	}
 	sqlite3_reset(statement);
+	sqlite3_clear_bindings(statement);
 }
 
 // Makes an Sqlite3 statement object from a query string.
@@ -539,6 +540,7 @@ void SaveNode(FbxNode* node) {
 	int numClusters = skin->GetClusterCount();
 	// Loop all the clusters and populate the weight sets.
 	for (int i = 0; i < numClusters; i++) {
+		FbxCluster::ELinkMode mode = skin->GetCluster(i)->GetLinkMode();
 		std::string name = skin->GetCluster(i)->GetLink()->GetName();
 		int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
 
@@ -638,8 +640,8 @@ void SaveNode(FbxNode* node) {
 	sqlite3_finalize(query);
 
 	// Load the Vertices into the SQLite DB.
-	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight) ";
-	insertStatement += " values(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)";
+	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight)";
+	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,    ?14,    ?15,    ?16,    ?17,       ?18,           ?19,       ?20,           ?21,       ?22,           ?23,       ?24,           ?25)";
 	query = MakeSqlStatement(insertStatement);
 	for (unsigned int i = 0; i < ttVerticies.size(); i++) {
 		sqlite3_bind_int(query, 1, meshNum);
@@ -753,6 +755,7 @@ int main(int argc, char** argv) {
 	sqlite3_finalize(query);
 
 
+	fprintf(stdout, "Successfully processed FBX File.\n");
 	// Successs~
 	Shutdown(0);
 }
