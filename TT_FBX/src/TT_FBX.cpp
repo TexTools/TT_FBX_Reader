@@ -403,6 +403,12 @@ void RunSql(sqlite3_stmt* statement) {
 	}
 	sqlite3_reset(statement);
 	sqlite3_clear_bindings(statement);
+	if (result != SQLITE_DONE) {
+		std::string err = sqlite3_errmsg(db);
+		fprintf(stderr, "SQLite Error: %s", err.c_str());
+		sqlite3_finalize(statement);
+		Shutdown(201, "SQLite Error.");
+	}
 }
 
 // Makes an Sqlite3 statement object from a query string.
