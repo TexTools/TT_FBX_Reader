@@ -712,14 +712,15 @@ void TestNode(FbxNode* pNode) {
 	FbxDouble3 rotation = pNode->LclRotation.Get();
 	FbxDouble3 scaling = pNode->LclScaling.Get();
 
-	if (regex_match(nodeName, meshRegex) && pNode->GetMesh() != NULL) {
-		// Print the contents of the node.
+
+	bool show = pNode->Show.Get();
+	if (regex_match(nodeName, meshRegex) && pNode->GetMesh() != NULL && show) {
+
+		// Save the node to the db.
 		SaveNode(pNode);
 	}
 
-	// Print the node's attributes.
-
-	// Recursively print the children.
+	// Continue scanning the tree.
 	for (int j = 0; j < pNode->GetChildCount(); j++)
 		TestNode(pNode->GetChild(j));
 }
