@@ -379,6 +379,21 @@ FbxSkin* GetSkin(FbxMesh* mesh) {
 	return NULL;
 }
 
+// Gets the first Skin element in a mesh.
+FbxBlendShape* GetMorpher(FbxMesh* mesh) {
+
+	int count = mesh->GetDeformerCount();
+	for (int i = 0; i < count; i++) {
+		FbxDeformer* d = mesh->GetDeformer(i);
+		FbxDeformer::EDeformerType dType = d->GetDeformerType();
+		if (dType == FbxDeformer::eBlendShape) {
+			return (FbxBlendShape*)d;
+		}
+	}
+	return NULL;
+}
+
+
 // Runs a simple pass/fail query with no results.
 void RunSql(std::string query) {
 
@@ -558,6 +573,12 @@ void SaveNode(FbxNode* node) {
 			double weight = skin->GetCluster(i)->GetControlPointWeights()[vi];
 			weightSets[cpIndex].Add(boneIdx, weight);
 		}
+	}
+
+
+	FbxBlendShape* morpher = GetMorpher(mesh);
+	if (morpher != NULL) {
+		fprintf(stderr, "%s contains an uncollapsed morpher.  Morpher data will be ignored.\n", meshName.c_str());
 	}
 
 
