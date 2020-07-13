@@ -343,7 +343,7 @@ FbxColor GetVertexColor(FbxMesh* const mesh, int index_id) {
 
 // Retreives the shared bone Id for a given bone (added to the bone Id list if needed)
 int GetBoneId(int mesh, std::string boneName) {
-	if (boneNames.size() <= (unsigned int) mesh) {
+	while (boneNames.size() <= (unsigned int) mesh) {
 		std::vector<std::string> n;
 		boneNames.push_back(n);
 	}
@@ -579,6 +579,21 @@ void SaveNode(FbxNode* node) {
 	FbxBlendShape* morpher = GetMorpher(mesh);
 	if (morpher != NULL) {
 		fprintf(stderr, "%s contains an uncollapsed morpher.  Morpher data will be ignored.\n", meshName.c_str());
+		int channelCount = morpher->GetBlendShapeChannelCount();
+		for (int i = 0; i < channelCount; i++) {
+			FbxBlendShapeChannel* channel = morpher->GetBlendShapeChannel(i);
+			FbxSubDeformer::EType subtype = channel->GetSubDeformerType();
+			int shapeCount = channel->GetTargetShapeCount();
+			double pct = channel->DeformPercent;
+
+
+			for (int s = 0; s < shapeCount; s++) {
+				FbxShape* shape = channel->GetTargetShape(s);
+				int indices = shape->GetControlPointIndicesCount();
+				int z = 0;
+				z++;
+			}
+		}
 	}
 
 
