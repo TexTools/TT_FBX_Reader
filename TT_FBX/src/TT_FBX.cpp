@@ -551,6 +551,10 @@ void SaveNode(FbxNode* node) {
 	// Vector of [control point index] => [Set of tri indexes that reference it.
 	std::vector<std::vector<int>> controlToPolyArray;
 	controlToPolyArray.resize(mesh->GetControlPointsCount());
+	int polys = mesh->GetPolygonCount();
+	if (polys != (numIndices / 3.0f)) {
+		Shutdown(500, "FBX is not fully triangulated.  Please export from your 3D modeling program with Triangulate option enabled.");
+	}
 
 	// Loop all tri indices and add them to the appropriate array.
 	for (int i = 0; i < numIndices; i++) {
