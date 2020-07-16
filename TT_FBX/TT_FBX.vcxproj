@@ -187,9 +187,13 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
   <ItemGroup>
     <ClCompile Include="..\external\sqlite\shell.c" />
     <ClCompile Include="..\external\sqlite\sqlite3.c" />
+    <ClCompile Include="src\db_converter.cpp" />
+    <ClCompile Include="src\fbx_importer.cpp" />
     <ClCompile Include="src\TT_FBX.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\db_converter.h" />
+    <ClInclude Include="src\fbx_importer.h" />
     <ClInclude Include="src\tt_vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
