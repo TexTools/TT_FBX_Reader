@@ -95,7 +95,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FBXSDK_SHARED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\boost\;D:\dev\TT_FBX\TT_FBX\src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\eigen\;D:\dev\TT_FBX\TT_FBX\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -136,7 +136,7 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FBXSDK_SHARED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\boost\;D:\dev\TT_FBX\TT_FBX\src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\eigen\;D:\dev\TT_FBX\TT_FBX\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
