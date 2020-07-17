@@ -277,8 +277,8 @@ void DBConverter::CreateScene() {
 	scene = FbxScene::Create(manager, "TexTools FBX Export");
 	FbxNode* root = scene->GetRootNode();
 
-	//FbxAxisSystem directXAxisSys(FbxAxisSystem::EUpVector::eYAxis, FbxAxisSystem::EFrontVector::eParityOdd, FbxAxisSystem::eRightHanded);
-	//directXAxisSys.ConvertScene(scene);
+	FbxAxisSystem directXAxisSys(FbxAxisSystem::EUpVector::eYAxis, FbxAxisSystem::EFrontVector::eParityOdd, FbxAxisSystem::eRightHanded);
+	directXAxisSys.ConvertScene(scene);
 
 	FbxNode* firstNode = FbxNode::Create(manager, "TexTools Export");
 	FbxDouble3 rootScale = firstNode->LclScaling.Get();
@@ -345,6 +345,7 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 		skeletonAttribute->SetSkeletonType(FbxSkeleton::eLimbNode);
 
 
+	skeletonAttribute->LimbLength.Set(1.0);
 	skeletonAttribute->Size.Set(1.0);
 	node->SetNodeAttribute(skeletonAttribute);
 
@@ -367,10 +368,6 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 
 	parentNode->AddChild(node);
 	bindPose->Add(node, node->EvaluateGlobalTransform());
-
-	//node->LclScaling.Set(scale);
-
-	//node->LclTranslation.Set(FbxDouble3(bone->PoseMatrix[0][3], bone->PoseMatrix[1][3], bone->PoseMatrix[2][3]));
 
 	for (int i = 0; i < bone->Children.size(); i++) {
 		AddBoneToScene(bone->Children[i], bindPose);
@@ -421,10 +418,13 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 
 
 	// Add the skin element.
-	FbxSkin* skin = FbxSkin::Create(manager, std::string(partName + " Skin Attribute").c_str());
+	FbxSkin* skin = FbxSkin::Create(scene, std::string(partName + " Skin Attribute").c_str());
 	auto typeName = skin->GetTypeName();
 	auto defType = skin->GetDeformerType();
-	skin->SetSkinningType(FbxSkin::eBlend);
+
+	// Setting this to eBlend will crash 3DS Max on loading the file.
+	skin->SetSkinningType(FbxSkin::eLinear);
+
 	mesh->AddDeformer(skin);
 
 	// For every possible bone
@@ -433,11 +433,11 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 		TTBone* bone = ttModel->GetBone(boneName);
 
 		// Create a cluster for it.
-		FbxCluster* cluster = FbxCluster::Create(scene, "");
+		FbxCluster* cluster = FbxCluster::Create(scene, std::string(partName + " " + boneName + " Cluster").c_str());
 
 		// Link and Link Mode.
 		cluster->SetLink(bone->Node);
-		cluster->SetLinkMode(FbxCluster::ELinkMode::eTotalOne);
+		cluster->SetLinkMode(FbxCluster::ELinkMode::eNormalize);
 
 		// Set Matrices
 		cluster->SetTransformMatrix(node->EvaluateGlobalTransform());
@@ -464,6 +464,9 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 		// Add the cluster if we have any weights.
 		if (cluster->GetControlPointIndicesCount() > 0) {
 			skin->AddCluster(cluster);
+			assert(cluster->GetLink() == bone->Node);
+			assert(cluster->GetSubDeformerType() == FbxSubDeformer::eCluster);
+			
 		}
 		else {
 			cluster->Destroy();
@@ -510,7 +513,7 @@ void DBConverter::ExportScene() {
 	auto pFileFormat = -1;
 
 	//Try to export in ASCII if possible
-	int lFormatIndex, lFormatCount = manager->GetIOPluginRegistry()->GetWriterFormatCount();
+	/*int lFormatIndex, lFormatCount = manager->GetIOPluginRegistry()->GetWriterFormatCount();
 
 	for (lFormatIndex = 0; lFormatIndex < lFormatCount; lFormatIndex++)
 	{
@@ -524,13 +527,13 @@ void DBConverter::ExportScene() {
 				break;
 			}
 		}
-	}
+	}*/
 	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
 	// GetIOSettings().SetBoolProp(EXP_FBX_ANIMATION, true);
 
 	// Initialize the exporter.
 	manager->SetIOSettings(ios);
-	bool exportStatus = exporter->Initialize(lFilename, lFormatIndex, ios);
+	bool exportStatus = exporter->Initialize(lFilename, pFileFormat, ios);
 	if (!exportStatus) {
 		printf("Call to FbxExporter::Initialize() failed.\n");
 		printf("Error returned: %s\n\n", exporter->GetStatus().GetErrorString());

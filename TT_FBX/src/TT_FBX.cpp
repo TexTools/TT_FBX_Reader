@@ -26,7 +26,7 @@
 #include <fbx_importer.h>
 #include <db_converter.h>
 
-using namespace fbxsdk;
+//using namespace FbxSdk;
 
 const std::regex dbRegex(".*\\.db$");
 
