@@ -18,7 +18,7 @@
 #include <regex>
 
 // Custom
-#include <tt_vertex.h>
+#include <tt_model.h>
 
 class FBXImporter {
 	sqlite3* db;

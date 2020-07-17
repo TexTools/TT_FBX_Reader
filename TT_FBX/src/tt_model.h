@@ -2,6 +2,8 @@
 
 #include <fbxsdk.h>
 #include <string>
+
+#include <eigen>
 #define _TTW_Max_Weights 4
 
 // An individual TTWeight
@@ -56,7 +58,6 @@ public:
     }
 };
 
-
 // A fully qualified TT Vertex.
 class TTVertex {
 public:
@@ -82,4 +83,87 @@ public:
 
         return true;
     };
+};
+
+class TTMeshPart;
+class TTMeshGroup;
+class TTModel;
+
+// Model Level Skeleton Information
+class TTBone {
+public:
+    std::string Name;
+    int Id;
+    int ParentId;
+    TTBone* Parent;
+    std::vector<TTBone*> Children;
+    Eigen::Transform<double, 3, Eigen::Affine> PoseMatrix;
+    FbxNode* Node;
+};
+
+class TTPart {
+public:
+    std::string Name;
+    int PartId;
+    std::vector<TTVertex> Vertices;
+    std::vector<int> Indices;
+    FbxNode* Node;
+    TTMeshGroup* MeshGroup;
+};
+
+class TTMeshGroup {
+public:
+    std::vector<TTPart*> Parts;
+    std::vector<std::string> Bones;
+    int MeshId;
+    FbxNode* Node;
+    TTModel* Model;
+};
+
+class TTModel {
+public:
+    std::vector<TTMeshGroup*> MeshGroups;
+    TTBone* FullSkeleton;
+    FbxNode* Node;
+
+    // Unit information  'meter', 'inch', 'centimeter' etc.
+    std::string Units;
+
+    // Axis, ex z, y
+    char Up = 'y';
+    
+    // Axis, ex z, y
+    char Front = 'z';
+
+    // Right(r) or Left(l)
+    char Handedness = 'r';
+
+    // Application that created the underlying DB file.
+    std::string Application;
+
+    // Application version number
+    std::string Version;
+
+    // Name of the model
+    std::string Name;
+
+    TTBone* GetBone(std::string name, TTBone* parent = NULL) {
+        if (parent == NULL) {
+            parent = FullSkeleton;
+        }
+
+        if (parent->Name == name) {
+            return parent;
+        }
+
+        for (int i = 0; i < parent->Children.size(); i++) {
+            TTBone* r = GetBone(name, parent->Children[i]);
+            if (r != NULL) {
+                return r;
+            }
+        }
+
+        return NULL;
+
+    }
 };

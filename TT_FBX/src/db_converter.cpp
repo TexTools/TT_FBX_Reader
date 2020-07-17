@@ -134,8 +134,42 @@ void DBConverter::ReadDB() {
 
 	std::vector<TTBone*> bones;
 
+	// Meta Values
+	sqlite3_stmt* query = MakeSqlStatement("select key, value name from meta");
+	while (GetRow(query)) {
+		std::string key = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 0)));
+		std::string value = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 1)));
+		
+		if (value == "") {
+			continue;
+		}
+
+		if (key == "unit") {
+			ttModel->Units = value;
+		}
+		else if (key == "name") {
+			ttModel->Name = value;
+		}
+		else if (key == "up") {
+			ttModel->Up = value[0];
+		}
+		else if (key == "front") {
+			ttModel->Front = value[0];
+		}
+		else if (key == "handedness") {
+			ttModel->Handedness = value[0];
+		}
+		else if (key == "version") {
+			ttModel->Version = value;
+		}
+		else if (key == "application") {
+			ttModel->Application = value;
+		}
+	}
+	sqlite3_finalize(query);
+
 	// Meshes and Parts
-	sqlite3_stmt* query = MakeSqlStatement("select mesh, part, name from parts");
+	query = MakeSqlStatement("select mesh, part, name from parts");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int partId = sqlite3_column_int(query, 1);
@@ -277,10 +311,57 @@ void DBConverter::CreateScene() {
 	scene = FbxScene::Create(manager, "TexTools FBX Export");
 	FbxNode* root = scene->GetRootNode();
 
-	FbxAxisSystem directXAxisSys(FbxAxisSystem::EUpVector::eYAxis, FbxAxisSystem::EFrontVector::eParityOdd, FbxAxisSystem::eRightHanded);
-	directXAxisSys.ConvertScene(scene);
+	// FFXIV stuff comes in Y Up, Z Front, Right Handed, for reference.
+	auto up = FbxAxisSystem::EUpVector::eYAxis;
+	auto front = FbxAxisSystem::EFrontVector::eParityOdd;
+	auto handedness = FbxAxisSystem::eRightHanded;
 
-	FbxNode* firstNode = FbxNode::Create(manager, "TexTools Export");
+	if (ttModel->Up == 'z') {
+
+		// Z UP
+		FbxAxisSystem::EUpVector::eZAxis;
+		if (ttModel->Front == 'x') {
+			front = FbxAxisSystem::EFrontVector::eParityEven;
+		}
+		else {
+			front = FbxAxisSystem::EFrontVector::eParityOdd;
+		}
+	}
+	else if(ttModel->Up == 'x') {
+		// X UP
+		FbxAxisSystem::EUpVector::eXAxis;
+		if (ttModel->Front == 'y') {
+			front = FbxAxisSystem::EFrontVector::eParityEven;
+		}
+		else {
+			front = FbxAxisSystem::EFrontVector::eParityOdd;
+		}
+	}
+	else {
+		// Y UP
+		FbxAxisSystem::EUpVector::eYAxis;
+		if (ttModel->Front == 'x') {
+			front = FbxAxisSystem::EFrontVector::eParityEven;
+		}
+		else {
+			front = FbxAxisSystem::EFrontVector::eParityOdd;
+		}
+	}
+
+	if (ttModel->Handedness == 'l') {
+		handedness = FbxAxisSystem::eLeftHanded;
+	}
+	else {
+		handedness = FbxAxisSystem::eRightHanded;
+	}
+
+	FbxAxisSystem dbAxis(up, front, handedness);
+	dbAxis.ConvertScene(scene);
+
+	// FFXIV uses Meters for internal units.
+	scene->GetGlobalSettings().SetSystemUnit(FbxSystemUnit::m);
+
+	FbxNode* firstNode = FbxNode::Create(manager, ttModel->Name.c_str());
 	FbxDouble3 rootScale = firstNode->LclScaling.Get();
 	root->AddChild(firstNode);
 	ttModel->Node = firstNode;
@@ -377,7 +458,7 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	// Create a mesh object
 
-	std::string partName = std::string("Part_" + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
+	std::string partName = std::string("Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
 	FbxMesh* mesh = FbxMesh::Create(manager, std::string(partName + " Mesh Attribute").c_str());
 
 	// Set the mesh as the node attribute of the node
@@ -483,11 +564,13 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 
 void DBConverter::ExportScene() {
 
+	// Convert the scene format to the incorrect Legacy method.
+
+
 	// Create an IOSettings object.
 	auto ios = (manager->GetIOSettings());
 
 	// ... Configure the FbxIOSettings object here ...
-
 	ios->SetBoolProp(EXP_FBX_MATERIAL, true);
 	ios->SetBoolProp(EXP_FBX_TEXTURE, true);
 	ios->SetBoolProp(EXP_FBX_EMBEDDED, false);
@@ -505,35 +588,14 @@ void DBConverter::ExportScene() {
 	FbxExporter* exporter = FbxExporter::Create(manager, "");
 	//exporter->SetFileExportVersion(FBX_2010_00_COMPATIBLE);
 
-	// Declare the path and filename of the file to which the scene will be exported.
-	// In this case, the file will be in the same directory as the executable.
+	// File is always piped to this directory currently.
 	const char* lFilename = "result.fbx";
 
-	// Write in fall back format in less no ASCII format found
-	auto pFileFormat = -1;
-
-	//Try to export in ASCII if possible
-	/*int lFormatIndex, lFormatCount = manager->GetIOPluginRegistry()->GetWriterFormatCount();
-
-	for (lFormatIndex = 0; lFormatIndex < lFormatCount; lFormatIndex++)
-	{
-		if (manager->GetIOPluginRegistry()->WriterIsFBX(lFormatIndex))
-		{
-			FbxString lDesc = manager->GetIOPluginRegistry()->GetWriterFormatDescription(lFormatIndex);
-			const char* lASCII = "ascii";
-			if (lDesc.Find(lASCII) >= 0)
-			{
-				pFileFormat = lFormatIndex;
-				break;
-			}
-		}
-	}*/
 	ios->SetBoolProp(EXP_FBX_ANIMATION, true);
-	// GetIOSettings().SetBoolProp(EXP_FBX_ANIMATION, true);
 
 	// Initialize the exporter.
 	manager->SetIOSettings(ios);
-	bool exportStatus = exporter->Initialize(lFilename, pFileFormat, ios);
+	bool exportStatus = exporter->Initialize(lFilename, -1, ios);
 	if (!exportStatus) {
 		printf("Call to FbxExporter::Initialize() failed.\n");
 		printf("Error returned: %s\n\n", exporter->GetStatus().GetErrorString());

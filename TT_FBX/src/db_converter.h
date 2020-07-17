@@ -22,68 +22,8 @@
 
 
 // Custom
-#include <tt_vertex.h>
+#include <tt_model.h>
 
-class TTMeshPart;
-class TTMeshGroup;
-class TTModel;
-
-class TTBone {
-public:
-	std::string Name;
-	int Id;
-	int ParentId;
-	TTBone* Parent;
-	std::vector<TTBone*> Children;
-	Eigen::Transform<double, 3, Eigen::Affine> PoseMatrix;
-	FbxNode* Node;
-};
-
-class TTPart {
-public:
-	std::string Name;
-	int PartId;
-	std::vector<TTVertex> Vertices;
-	std::vector<int> Indices;
-	FbxNode* Node;
-	TTMeshGroup* MeshGroup;
-};
-
-class TTMeshGroup {
-public:
-	std::vector<TTPart*> Parts;
-	std::vector<std::string> Bones;
-	int MeshId;
-	FbxNode* Node;
-	TTModel* Model;
-};
-
-class TTModel {
-public:
-	std::vector<TTMeshGroup*> MeshGroups;
-	TTBone* FullSkeleton;
-	FbxNode* Node;
-
-	TTBone* GetBone(std::string name, TTBone* parent = NULL) {
-		if (parent == NULL) {
-			parent = FullSkeleton;
-		}
-
-		if (parent->Name == name) {
-			return parent;
-		}
-
-		for (int i = 0; i < parent->Children.size(); i++) {
-			TTBone* r = GetBone(name, parent->Children[i]);
-			if (r != NULL) {
-				return r;
-			}
-		}
-
-		return NULL;
-
-	}
-};
 
 class DBConverter {
 	sqlite3* db;

@@ -73,7 +73,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IntDir>$(SolutionDir)TT_FBX\obj\$(Configuration)\</IntDir>
-    <TargetName>importer</TargetName>
+    <TargetName>converter</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -188,7 +188,7 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
   <ItemGroup>
     <ClInclude Include="src\db_converter.h" />
     <ClInclude Include="src\fbx_importer.h" />
-    <ClInclude Include="src\tt_vertex.h" />
+    <ClInclude Include="src\tt_model.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="res\dll\libfbxsdk.dll">
