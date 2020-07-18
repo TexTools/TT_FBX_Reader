@@ -32,6 +32,8 @@ class DBConverter {
 
 	TTModel* ttModel;
 
+	void CreateMaterials();
+
 	void Shutdown(int code, const char* errorMessage = NULL);
 	void WriteLog(std::string message, bool warning = false);
 	int Init(const char* dbFilePath);

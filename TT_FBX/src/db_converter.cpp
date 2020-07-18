@@ -126,7 +126,6 @@ void DBConverter::AssignChildren(TTBone* root, std::vector<TTBone*> bones) {
 	}
 }
 
-
 // Reads the raw SQLite DB file and populates a TTModel object from it.
 void DBConverter::ReadDB() {
 
@@ -169,11 +168,12 @@ void DBConverter::ReadDB() {
 	sqlite3_finalize(query);
 
 	// Meshes and Parts
-	query = MakeSqlStatement("select mesh, part, name from parts");
+	query = MakeSqlStatement("select mesh, part, name, material_id from parts");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int partId = sqlite3_column_int(query, 1);
 		std::string name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 2)));
+		int materialId = sqlite3_column_int(query, 3);
 
 		while (meshId >= ttModel->MeshGroups.size()) {
 			ttModel->MeshGroups.push_back(new TTMeshGroup());
@@ -185,8 +185,42 @@ void DBConverter::ReadDB() {
 			TTPart* part = ttModel->MeshGroups[meshId]->Parts[ttModel->MeshGroups[meshId]->Parts.size() - 1];
 			part->MeshGroup = ttModel->MeshGroups[meshId];
 			part->PartId = ttModel->MeshGroups[meshId]->Parts.size() - 1;
+			part->MaterialId = materialId;
 		}
 		ttModel->MeshGroups[meshId]->Parts[partId]->Name = name;
+	}
+	sqlite3_finalize(query);
+
+	// Materials
+	query = MakeSqlStatement("select material_id, diffuse, normal, specular, opacity, emissive from materials order by material_id asc");
+	while (GetRow(query)) {
+
+		int material_id = sqlite3_column_int(query, 0);
+		while (ttModel->Materials.size() < material_id + 1) {
+			ttModel->Materials.push_back(new TTMaterial);
+		}
+
+		// We don't actually care if any of these fail particularly.
+		auto s = (char*)sqlite3_column_text(query, 1);
+		if (s != NULL) {
+			ttModel->Materials[material_id]->Diffuse = std::string(s);
+		}
+		s = (char*)sqlite3_column_text(query, 2);
+		if (s != NULL) {
+			ttModel->Materials[material_id]->Normal = std::string(s);
+		}
+		s = (char*)sqlite3_column_text(query, 3);
+		if (s != NULL) {
+			ttModel->Materials[material_id]->Specular = std::string(s);
+		}
+		s = (char*)sqlite3_column_text(query, 4);
+		if (s != NULL) {
+			ttModel->Materials[material_id]->Opacity = std::string(s);
+		}
+		s = (char*)sqlite3_column_text(query, 5);
+		if (s != NULL) {
+			ttModel->Materials[material_id]->Emissive = std::string(s);
+		}
 	}
 	sqlite3_finalize(query);
 
@@ -371,6 +405,7 @@ void DBConverter::CreateScene() {
 	AddBoneToScene(ttModel->FullSkeleton, pose);
 	scene->AddPose(pose);
 
+	CreateMaterials();
 
 	std::vector<FbxNode*> meshGroupNodes;
 	for (int i = 0; i < ttModel->MeshGroups.size(); i++) {
@@ -391,6 +426,68 @@ void DBConverter::CreateScene() {
 
 }
 
+void DBConverter::CreateMaterials() {
+
+	int i;
+	
+	for (int i = 0; i < ttModel->Materials.size(); i++)
+	{
+		auto* mat = ttModel->Materials[i];
+		FbxString lMaterialName = "material_";
+		lMaterialName += i;
+		FbxDouble3 white = FbxDouble3(1.0f, 1.0f, 1.0f);
+		FbxDouble3 black = FbxDouble3(0.f, 0.f, 0.f);
+		FbxSurfacePhong* lMaterial = FbxSurfacePhong::Create(scene, lMaterialName.Buffer());
+
+
+		// Generate primary and secondary colors.
+		lMaterial->Emissive.Set(black);
+		lMaterial->Diffuse.Set(white);
+		lMaterial->TransparencyFactor.Set(0.0);
+		lMaterial->ShadingModel.Set("Phong");
+		lMaterial->Shininess.Set(0.5);
+
+		if (mat->Diffuse != "") {
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, "Diffuse Texture");
+			texture->SetFileName(mat->Diffuse.c_str()); // Resource file is in current directory.
+			texture->SetTextureUse(FbxTexture::eStandard);
+			texture->SetMappingType(FbxTexture::eUV);
+			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			lMaterial->Diffuse.ConnectSrcObject(texture);
+		}
+
+		if (mat->Specular != "") {
+			FbxFileTexture*  texture = FbxFileTexture::Create(scene, "Specular Texture");
+			texture->SetFileName(mat->Specular.c_str()); // Resource file is in current directory.
+			texture->SetTextureUse(FbxTexture::eStandard);
+			texture->SetMappingType(FbxTexture::eUV);
+			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			lMaterial->Specular.ConnectSrcObject(texture);
+		}
+
+		if (mat->Normal != "") {
+			FbxFileTexture*  texture = FbxFileTexture::Create(scene, "Normal Texture");
+			texture->SetFileName(mat->Normal.c_str()); // Resource file is in current directory.
+			texture->SetTextureUse(FbxTexture::eStandard);
+			texture->SetMappingType(FbxTexture::eUV);
+			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			lMaterial->NormalMap.ConnectSrcObject(texture);
+		}
+
+		if (mat->Emissive != "") {
+			FbxFileTexture*  texture = FbxFileTexture::Create(scene, "Emissive Texture");
+			texture->SetFileName(mat->Emissive.c_str()); // Resource file is in current directory.
+			texture->SetTextureUse(FbxTexture::eStandard);
+			texture->SetMappingType(FbxTexture::eUV);
+			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			lMaterial->Emissive.ConnectSrcObject(texture);
+		}
+
+
+		mat->Material = lMaterial;
+	}
+}
+
 FbxDouble3 MatrixToScale(Eigen::Transform<double, 3, Eigen::Affine> affineMatrix) {
 
 	Eigen::Matrix4d m = affineMatrix.matrix();
@@ -407,6 +504,8 @@ FbxDouble3 MatrixToScale(Eigen::Transform<double, 3, Eigen::Affine> affineMatrix
 }
 
 void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
+	if (bone == NULL) return;
+
 	FbxNode* parentNode;
 	if (bone->Parent == NULL) {
 		parentNode = ttModel->Node;
@@ -472,12 +571,28 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 
 	mesh->InitControlPoints(part->Vertices.size());
 	mesh->InitNormals(part->Vertices.size());
+	node->AddMaterial(ttModel->Materials[part->MaterialId]->Material);
 
+	int nbMat = node->GetMaterialCount();
+	int nbMat1 = node->GetSrcObjectCount<FbxSurfaceMaterial>();
+
+	FbxGeometryElementMaterial* lMaterialElement = mesh->CreateElementMaterial();
+	lMaterialElement->SetMappingMode(FbxGeometryElement::eAllSame);
+
+	// Apparently you can't actually write Vertex Color by control point for some reason.
 	FbxGeometryElementVertexColor* colorElement = mesh->CreateElementVertexColor();
-	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
+	colorElement->SetReferenceMode(FbxLayerElement::EReferenceMode::eDirect);
 
-	FbxGeometryElementUV* uvElement = mesh->CreateElementUV("set");
+	FbxGeometryElementUV* uvElement = mesh->CreateElementUV("uv1");
 	uvElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+
+	// Createa  new layer and stick the UV2 element on it.
+	auto newLayerId = mesh->CreateLayer();
+	auto* layer2 = mesh->GetLayer(newLayerId);
+	auto* uv2Layer = FbxLayerElementUV::Create(mesh, "uv2");
+	uv2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer2->SetUVs(uv2Layer);
 
 	FbxVector4* cps = mesh->GetControlPoints();
 
@@ -486,7 +601,7 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 
 		mesh->SetControlPointAt(v.Position, v.Normal, i);
 		uvElement->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
-		colorElement->GetDirectArray().Add(v.VertexColor);
+		uv2Layer->GetDirectArray().Add(FbxVector2(v.UV2[0], v.UV2[1]));
 	}
 
 	for (int i = 0; i < part->Indices.size(); i += 3) {
@@ -495,6 +610,13 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 		mesh->AddPolygon(part->Indices[i + 1]);
 		mesh->AddPolygon(part->Indices[i + 2]);
 		mesh->EndPolygon();
+
+		TTVertex vert1 = part->Vertices[part->Indices[i]];
+		TTVertex vert2 = part->Vertices[part->Indices[i+1]];
+		TTVertex vert3 = part->Vertices[part->Indices[i+2]];
+		colorElement->GetDirectArray().Add(vert1.VertexColor);
+		colorElement->GetDirectArray().Add(vert2.VertexColor);
+		colorElement->GetDirectArray().Add(vert3.VertexColor);
 	}
 
 
@@ -554,6 +676,8 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 		}
 	}
 
+
+
 	// Add the part node to the bind pose.
 		// Probably overkill.
 	FbxPose* pose = scene->GetPose(0);
@@ -573,7 +697,7 @@ void DBConverter::ExportScene() {
 	// ... Configure the FbxIOSettings object here ...
 	ios->SetBoolProp(EXP_FBX_MATERIAL, true);
 	ios->SetBoolProp(EXP_FBX_TEXTURE, true);
-	ios->SetBoolProp(EXP_FBX_EMBEDDED, false);
+	ios->SetBoolProp(EXP_FBX_EMBEDDED, true);
 	ios->SetBoolProp(EXP_FBX_SHAPE, true);
 	ios->SetBoolProp(EXP_FBX_GOBO, true);
 	ios->SetBoolProp(EXP_FBX_ANIMATION, true);

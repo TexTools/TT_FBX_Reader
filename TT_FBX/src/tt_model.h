@@ -101,10 +101,21 @@ public:
     FbxNode* Node;
 };
 
+class TTMaterial {
+public:
+    std::string Normal;
+    std::string Specular;
+    std::string Emissive;
+    std::string Opacity;
+    std::string Diffuse;
+    FbxSurfaceMaterial* Material;
+};
+
 class TTPart {
 public:
     std::string Name;
     int PartId;
+    int MaterialId;
     std::vector<TTVertex> Vertices;
     std::vector<int> Indices;
     FbxNode* Node;
@@ -123,6 +134,7 @@ public:
 class TTModel {
 public:
     std::vector<TTMeshGroup*> MeshGroups;
+    std::vector<TTMaterial*> Materials;
     TTBone* FullSkeleton;
     FbxNode* Node;
 
