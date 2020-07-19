@@ -3,8 +3,9 @@
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-const std::regex meshRegex(".+_[0-9]\\.?[0-9]?$");
-const std::regex extractMeshInfoRegex(".+_([0-9])\\.?([0-9])?$");
+const std::regex meshRegex(".*[_ ^][0-9]\\.?[0-9]?$");
+const std::regex extractMeshInfoRegex(".*[_ ^]([0-9])\\.?([0-9])?$");
+
 
 inline bool FBXImporter::file_exists(const std::string& name) {
 
@@ -99,6 +100,9 @@ int FBXImporter::Init(const char* fbxFilePath, sqlite3** database, FbxManager** 
 
 	// The file is imported; so get rid of the importer.
 	importer->Destroy();
+
+	// Convert the scene to meters.
+	FbxSystemUnit::m.ConvertScene(*scene);
 
 	return 0;
 }
@@ -406,6 +410,11 @@ void FBXImporter::WriteWarning(std::string warning) {
 	sqlite3_finalize(query);
 }
 
+bool FBXImporter::MeshGroupExists(int mesh) {
+	std::map<int, std::map<int, std::string>>::iterator it = meshParts.find(mesh);
+	if (it == meshParts.end()) return false;
+	return true;
+}
 
 // Checks if a mesh part already exists.
 bool FBXImporter::MeshPartExists(int mesh, int part) {
@@ -426,7 +435,7 @@ bool FBXImporter::MeshPartExists(int mesh, int part) {
 
 
 // Adds a mesh part to the mesh parts dictionary
-void FBXImporter::MakeMeshPart(int mesh, int part, std::string name) {
+void FBXImporter::MakeMeshPart(int mesh, int part, std::string name, std::string parentName) {
 
 	std::map<int, std::string> partList;
 
@@ -435,6 +444,16 @@ void FBXImporter::MakeMeshPart(int mesh, int part, std::string name) {
 	if (it == meshParts.end()) {
 		partList = std::map<int, std::string>();
 		meshParts.insert(make_pair(mesh, partList));
+
+		// Pop the name and entry into the DB too.
+		// We don't really care about having an accurate material ID here, as TexTools doesn't read it on
+		// import anyways.
+		std::string insertStatement = "insert into meshes (mesh, name, material_id) values (?1, ?2, 0)";
+		sqlite3_stmt* query = MakeSqlStatement(insertStatement);
+		sqlite3_bind_int(query, 1, mesh);
+		sqlite3_bind_text(query, 2, parentName.c_str(), parentName.length(), NULL);
+		RunSql(query);
+		sqlite3_finalize(query);
 	}
 	else {
 		partList = it->second;
@@ -444,7 +463,7 @@ void FBXImporter::MakeMeshPart(int mesh, int part, std::string name) {
 	partList.insert(make_pair(part, name));
 	meshParts[mesh] = partList;
 
-	// Insert the mesh into the SQlite DB.
+	// Insert the part into the SQlite DB.
 
 	// Load the triangle indicies into the SQLite DB.
 	std::string insertStatement = "insert into parts (mesh, part, name) values (?1, ?2, ?3)";
@@ -502,8 +521,13 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		return;
 	}
 
+	std::string parentName = "Group " + std::to_string(meshNum);
+	if (node->GetParent() != NULL && node->GetParent()->GetName() != NULL) {
+		parentName = node->GetParent()->GetName();
+	}
+
 	// Add the mesh part.
-	MakeMeshPart(meshNum, partNum, meshName);
+	MakeMeshPart(meshNum, partNum, meshName, parentName);
 
 	// Create a vector the side of the control point array to store the weights.
 	std::vector<TTWeightSet> weightSets;

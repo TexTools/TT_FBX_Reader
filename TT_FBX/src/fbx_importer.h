@@ -48,8 +48,11 @@ class FBXImporter {
 	void RunSql(std::string query);
 
 	sqlite3_stmt* MakeSqlStatement(std::string query);
+	
+	bool MeshGroupExists(int mesh);
 	bool MeshPartExists(int mesh, int part);
-	void MakeMeshPart(int mesh, int part, std::string name);
+
+	void MakeMeshPart(int mesh, int part, std::string name, std::string parentName);
 	void TestNode(FbxNode* pNode);
 	void SaveNode(FbxNode* node);
 	void WriteWarning(std::string warning);

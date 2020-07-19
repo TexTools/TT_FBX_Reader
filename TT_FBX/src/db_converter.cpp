@@ -98,7 +98,7 @@ void DBConverter::BuildSkeleton(std::vector<TTBone*> bones) {
 	// First, find the root;
 	for (int i = 0; i < bones.size(); i++) {
 		TTBone* bone = bones[i];
-		if (bone->ParentId == -1) {
+		if (bone->ParentName == "") {
 			root = bone;
 			root->Parent = NULL;
 			break;
@@ -118,7 +118,7 @@ void DBConverter::BuildSkeleton(std::vector<TTBone*> bones) {
 void DBConverter::AssignChildren(TTBone* root, std::vector<TTBone*> bones) {
 	for (int i = 0; i < bones.size(); i++) {
 		TTBone* bone = bones[i];
-		if (bone->ParentId == root->Id) {
+		if (bone->ParentName == root->Name) {
 			bone->Parent = root;
 			root->Children.push_back(bone);
 			AssignChildren(bone, bones);
@@ -167,26 +167,57 @@ void DBConverter::ReadDB() {
 	}
 	sqlite3_finalize(query);
 
-	// Meshes and Parts
-	query = MakeSqlStatement("select mesh, part, name, material_id from parts");
+	// Meshes
+	query = MakeSqlStatement("select mesh, name, material_id from meshes");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
-		int partId = sqlite3_column_int(query, 1);
-		std::string name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 2)));
-		int materialId = sqlite3_column_int(query, 3);
 
+		std::string name = "";
+		auto s = (char*)sqlite3_column_text(query, 1);
+		if (s != NULL) {
+			name = std::string(s);
+		}
+
+		int materialId = sqlite3_column_int(query, 2);
+
+		// Create mesh groups as needed.
 		while (meshId >= ttModel->MeshGroups.size()) {
 			ttModel->MeshGroups.push_back(new TTMeshGroup());
 			ttModel->MeshGroups[ttModel->MeshGroups.size() - 1]->Model = ttModel;
 			ttModel->MeshGroups[ttModel->MeshGroups.size() - 1]->MeshId = ttModel->MeshGroups.size() - 1;
 		}
+		ttModel->MeshGroups[meshId]->MaterialId = materialId;
+		ttModel->MeshGroups[meshId]->Name = name;
+	}
+	sqlite3_finalize(query);
+
+	// Meshes and Parts
+	query = MakeSqlStatement("select mesh, part, name from parts");
+	while (GetRow(query)) {
+		int meshId = sqlite3_column_int(query, 0);
+		int partId = sqlite3_column_int(query, 1);
+
+		std::string name = "";
+		auto s = (char*)sqlite3_column_text(query, 2);
+		if (s != NULL) {
+			name = std::string(s);
+		}
+
+		// Create mesh groups as needed.
+		while (meshId >= ttModel->MeshGroups.size()) {
+			ttModel->MeshGroups.push_back(new TTMeshGroup());
+			ttModel->MeshGroups[ttModel->MeshGroups.size() - 1]->Model = ttModel;
+			ttModel->MeshGroups[ttModel->MeshGroups.size() - 1]->MeshId = ttModel->MeshGroups.size() - 1;
+		}
+
+		// Create parts as needed.
 		while (partId >= ttModel->MeshGroups[meshId]->Parts.size()) {
 			ttModel->MeshGroups[meshId]->Parts.push_back(new TTPart());
 			TTPart* part = ttModel->MeshGroups[meshId]->Parts[ttModel->MeshGroups[meshId]->Parts.size() - 1];
 			part->MeshGroup = ttModel->MeshGroups[meshId];
 			part->PartId = ttModel->MeshGroups[meshId]->Parts.size() - 1;
-			part->MaterialId = materialId;
 		}
+
 		ttModel->MeshGroups[meshId]->Parts[partId]->Name = name;
 	}
 	sqlite3_finalize(query);
@@ -224,56 +255,68 @@ void DBConverter::ReadDB() {
 	}
 	sqlite3_finalize(query);
 
+	// Skeleton
+	query = MakeSqlStatement("select name, parent, matrix_0, matrix_1, matrix_2, matrix_3, matrix_4, matrix_5, matrix_6, matrix_7, matrix_8, matrix_9, matrix_10, matrix_11, matrix_12, matrix_13, matrix_14, matrix_15 from skeleton order by name asc");
+	while (GetRow(query)) {
+		TTBone* bone = new TTBone();
+
+		bone->Name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 0)));
+
+		auto s = (char*)sqlite3_column_text(query, 1);
+		if (s != NULL) {
+			 bone->ParentName = std::string(s);
+		}
+		else {
+			bone->ParentName = "";
+		}
+
+		Eigen::Transform<double, 3, Eigen::Affine> matrix;
+		Eigen::Matrix4d baseMatrix = matrix.matrix();
+
+		baseMatrix(0, 0) = sqlite3_column_double(query, 2);
+		baseMatrix(0, 1) = sqlite3_column_double(query, 3);
+		baseMatrix(0, 2) = sqlite3_column_double(query, 4);
+		baseMatrix(0, 3) = sqlite3_column_double(query, 5);
+
+		baseMatrix(1, 0) = sqlite3_column_double(query, 6);
+		baseMatrix(1, 1) = sqlite3_column_double(query, 7);
+		baseMatrix(1, 2) = sqlite3_column_double(query, 8);
+		baseMatrix(1, 3) = sqlite3_column_double(query, 9);
+
+		baseMatrix(2, 0) = sqlite3_column_double(query, 10);
+		baseMatrix(2, 1) = sqlite3_column_double(query, 11);
+		baseMatrix(2, 2) = sqlite3_column_double(query, 12);
+		baseMatrix(2, 3) = sqlite3_column_double(query, 13);
+
+		baseMatrix(3, 0) = sqlite3_column_double(query, 14);
+		baseMatrix(3, 1) = sqlite3_column_double(query, 15);
+		baseMatrix(3, 2) = sqlite3_column_double(query, 16);
+		baseMatrix(3, 3) = sqlite3_column_double(query, 17);
+
+		matrix.matrix() = baseMatrix;
+		bone->PoseMatrix = matrix;
+
+		bones.push_back(bone);
+	}
+
 	// Bones
-	query = MakeSqlStatement("select mesh, bone_id, parent_id, name, matrix_0, matrix_1, matrix_2, matrix_3, matrix_4, matrix_5, matrix_6, matrix_7, matrix_8, matrix_9, matrix_10, matrix_11, matrix_12, matrix_13, matrix_14, matrix_15 from bones order by mesh asc, bone_id asc");
+	query = MakeSqlStatement("select mesh, bone_id, name from bones order by mesh asc, bone_id asc");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int boneId = sqlite3_column_int(query, 1);
-		std::string name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 3)));
-		if (meshId == -1) {
-			// This is part of the full skeleton list, not a mesh bone.
-			int parentId = sqlite3_column_int(query, 2);
-			TTBone* bone = new TTBone();
-			bone->Id = boneId;
-			bone->Name = name;
-			bone->ParentId = parentId;
-			Eigen::Transform<double, 3, Eigen::Affine> matrix;
-			Eigen::Matrix4d baseMatrix = matrix.matrix();
+		std::string name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 2)));
 
-			baseMatrix(0, 0) = sqlite3_column_double(query, 4);
-			baseMatrix(0, 1) = sqlite3_column_double(query, 5);
-			baseMatrix(0, 2) = sqlite3_column_double(query, 6);
-			baseMatrix(0, 3) = sqlite3_column_double(query, 7);
-
-			baseMatrix(1, 0) = sqlite3_column_double(query, 8);
-			baseMatrix(1, 1) = sqlite3_column_double(query, 9);
-			baseMatrix(1, 2) = sqlite3_column_double(query, 10);
-			baseMatrix(1, 3) = sqlite3_column_double(query, 11);
-
-			baseMatrix(2, 0) = sqlite3_column_double(query, 12);
-			baseMatrix(2, 1) = sqlite3_column_double(query, 13);
-			baseMatrix(2, 2) = sqlite3_column_double(query, 14);
-			baseMatrix(2, 3) = sqlite3_column_double(query, 15);
-
-			baseMatrix(3, 0) = sqlite3_column_double(query, 16);
-			baseMatrix(3, 1) = sqlite3_column_double(query, 17);
-			baseMatrix(3, 2) = sqlite3_column_double(query, 18);
-			baseMatrix(3, 3) = sqlite3_column_double(query, 19);
-
-			matrix.matrix() = baseMatrix;
-			bone->PoseMatrix = matrix;
-
-			bones.push_back(bone);
+		// Fill in missing mesh groups (This shouldn't really ever happen, but safety)
+		while (meshId >= ttModel->MeshGroups.size()) {
+			ttModel->MeshGroups.push_back(new TTMeshGroup());
 		}
-		else {
-			while (meshId >= ttModel->MeshGroups.size()) {
-				ttModel->MeshGroups.push_back(new TTMeshGroup());
-			}
-			while (boneId >= ttModel->MeshGroups[meshId]->Bones.size()) {
-				ttModel->MeshGroups[meshId]->Bones.push_back("");
-			}
-			ttModel->MeshGroups[meshId]->Bones[boneId] = name;
+
+		// Fill in missing bones as needed in case we read them out of order.
+		while (boneId >= ttModel->MeshGroups[meshId]->Bones.size()) {
+			ttModel->MeshGroups[meshId]->Bones.push_back("");
 		}
+
+		ttModel->MeshGroups[meshId]->Bones[boneId] = name;
 	}
 	sqlite3_finalize(query);
 
@@ -571,7 +614,7 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 
 	mesh->InitControlPoints(part->Vertices.size());
 	mesh->InitNormals(part->Vertices.size());
-	node->AddMaterial(ttModel->Materials[part->MaterialId]->Material);
+	node->AddMaterial(ttModel->Materials[part->MeshGroup->MaterialId]->Material);
 
 	int nbMat = node->GetMaterialCount();
 	int nbMat1 = node->GetSrcObjectCount<FbxSurfaceMaterial>();

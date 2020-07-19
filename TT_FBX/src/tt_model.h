@@ -93,10 +93,11 @@ class TTModel;
 class TTBone {
 public:
     std::string Name;
-    int Id;
-    int ParentId;
+    std::string ParentName;
+
     TTBone* Parent;
     std::vector<TTBone*> Children;
+
     Eigen::Transform<double, 3, Eigen::Affine> PoseMatrix;
     FbxNode* Node;
 };
@@ -115,7 +116,6 @@ class TTPart {
 public:
     std::string Name;
     int PartId;
-    int MaterialId;
     std::vector<TTVertex> Vertices;
     std::vector<int> Indices;
     FbxNode* Node;
@@ -124,9 +124,11 @@ public:
 
 class TTMeshGroup {
 public:
+    std::string Name;
     std::vector<TTPart*> Parts;
     std::vector<std::string> Bones;
     int MeshId;
+    int MaterialId;
     FbxNode* Node;
     TTModel* Model;
 };
