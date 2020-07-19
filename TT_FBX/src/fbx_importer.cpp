@@ -465,7 +465,7 @@ void FBXImporter::MakeMeshPart(int mesh, int part, std::string name, std::string
 
 	// Insert the part into the SQlite DB.
 
-	// Load the triangle indicies into the SQLite DB.
+	// Load the Part into the SQLite DB.
 	std::string insertStatement = "insert into parts (mesh, part, name) values (?1, ?2, ?3)";
 	sqlite3_stmt* query = MakeSqlStatement(insertStatement);
 	sqlite3_bind_int(query, 1, mesh);
@@ -598,7 +598,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		unsigned int oldSize = ttVerticies.size();
 
 		// No indices, this is an orphaned control point, skip it.
-		if (sharedIndexCount == 0) return;
+		if (sharedIndexCount == 0) continue;
 
 		// Setup vertex list
 		std::vector<TTVertex> sharedVerts;
