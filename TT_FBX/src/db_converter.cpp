@@ -622,9 +622,10 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	FbxGeometryElementMaterial* lMaterialElement = mesh->CreateElementMaterial();
 	lMaterialElement->SetMappingMode(FbxGeometryElement::eAllSame);
 
-	// Apparently you can't actually write Vertex Color by control point for some reason.
+	// Not sure what's up with this, but you have to specify by control point,
+	// then actually write the direct array by polygon index.
 	FbxGeometryElementVertexColor* colorElement = mesh->CreateElementVertexColor();
-	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
+	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 	colorElement->SetReferenceMode(FbxLayerElement::EReferenceMode::eDirect);
 
 	FbxGeometryElementUV* uvElement = mesh->CreateElementUV("uv1");
