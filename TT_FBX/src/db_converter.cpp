@@ -625,8 +625,8 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	// Not sure what's up with this, but you have to specify by control point,
 	// then actually write the direct array by polygon index.
 	FbxGeometryElementVertexColor* colorElement = mesh->CreateElementVertexColor();
-	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
-	colorElement->SetReferenceMode(FbxLayerElement::EReferenceMode::eDirect);
+	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
+	colorElement->SetReferenceMode(FbxLayerElement::EReferenceMode::eIndexToDirect);
 
 	FbxGeometryElementUV* uvElement = mesh->CreateElementUV("uv1");
 	uvElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
@@ -661,6 +661,10 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 		colorElement->GetDirectArray().Add(vert1.VertexColor);
 		colorElement->GetDirectArray().Add(vert2.VertexColor);
 		colorElement->GetDirectArray().Add(vert3.VertexColor);
+
+		colorElement->GetIndexArray().Add(i);
+		colorElement->GetIndexArray().Add(i+1);
+		colorElement->GetIndexArray().Add(i+2);
 	}
 
 
