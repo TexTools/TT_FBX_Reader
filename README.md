@@ -38,5 +38,5 @@ By default, your executable will be listed as both an importer and exporter; thi
 
 # DB Files
 
-Textools communicates model data with its external exporters via a simple SQLite DB format.  The exact structure of this DB format is available in this project's /SQL/ directory.
+Textools communicates model data with its external exporters via a simple SQLite DB format.  The exact structure of this DB format is available in this project's TT_FBX/src/res/sq/ directory, and/or in the main xivModdingFramework project's SQL directory.
 - Some data points are optional, and/or are ignored on import into TexTools.  For example, Skeleton data is immutable and ignored on import back into TexTools.
