@@ -101,8 +101,12 @@ int FBXImporter::Init(const char* fbxFilePath, sqlite3** database, FbxManager** 
 	// The file is imported; so get rid of the importer.
 	importer->Destroy();
 
+
+	auto unit = (*scene)->GetGlobalSettings().GetSystemUnit();
+
 	// Convert the scene to meters.
 	FbxSystemUnit::m.ConvertScene(*scene);
+
 
 	return 0;
 }
@@ -496,6 +500,8 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		return;
 	}
 
+	auto worldTransform = node->EvaluateGlobalTransform();
+
 	//boost::match_results<std::string::const_iterator> results;
 
 	std::smatch m;
@@ -612,8 +618,11 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			// Build our own vertex.
 			TTVertex myVert;
 			int controlPointIndex = mesh->GetPolygonVertex(indexId / 3, indexId % 3);
-			myVert.Position = GetPosition(mesh, indexId);
-			myVert.Normal = GetNormal(mesh, indexId);
+			auto vertWorldPosition = worldTransform.MultT(GetPosition(mesh, indexId));
+			auto vertWorldNormal = worldTransform.MultT(GetNormal(mesh, indexId));
+
+			myVert.Position = vertWorldPosition;
+			myVert.Normal = vertWorldNormal;
 			myVert.VertexColor = GetVertexColor(mesh, indexId);
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
