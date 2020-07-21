@@ -619,10 +619,10 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			TTVertex myVert;
 			int controlPointIndex = mesh->GetPolygonVertex(indexId / 3, indexId % 3);
 			auto vertWorldPosition = worldTransform.MultT(GetPosition(mesh, indexId));
-			auto vertWorldNormal = worldTransform.MultT(GetNormal(mesh, indexId));
+			//auto vertWorldNormal = worldTransform.MultT(GetNormal(mesh, indexId));
 
 			myVert.Position = vertWorldPosition;
-			myVert.Normal = vertWorldNormal;
+			myVert.Normal = GetNormal(mesh, indexId);
 			myVert.VertexColor = GetVertexColor(mesh, indexId);
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
