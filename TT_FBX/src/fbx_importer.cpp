@@ -3,8 +3,8 @@
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-const std::regex meshRegex(".*[_ ^][0-9]\\.?[0-9]?$");
-const std::regex extractMeshInfoRegex(".*[_ ^]([0-9])\\.?([0-9])?$");
+const std::regex meshRegex(".*[_ ^][0-9][\\.\\-]?[0-9]?$");
+const std::regex extractMeshInfoRegex(".*[_ ^]([0-9])[\\.\\-]?([0-9])?$");
 
 
 inline bool FBXImporter::file_exists(const std::string& name) {
