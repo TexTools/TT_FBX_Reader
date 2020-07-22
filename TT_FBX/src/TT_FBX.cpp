@@ -3,6 +3,7 @@
 // Core
 #include <iostream>
 #include <string>
+#include "tchar.h"
 #include <regex>
 
 // Custom
@@ -13,15 +14,17 @@
 
 const std::regex dbRegex(".*\\.db$");
 
+
 /**
  * Program entry point, yaaaay.
  */
-int main(int argc, char** argv) {
+int main(int argc, _TCHAR* argv[]) {
 
 	if (argc < 2) {
 		fprintf(stderr, "No file path supplied.\n");
 		return(101);
 	}
+
 
 	std::cmatch m;
 	bool success = std::regex_match(argv[1], m, dbRegex);
