@@ -496,6 +496,7 @@ void DBConverter::CreateMaterials() {
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
 			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			texture->Alpha.Set(1.0);
 			lMaterial->Diffuse.ConnectSrcObject(texture);
 		}
 
@@ -505,6 +506,7 @@ void DBConverter::CreateMaterials() {
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
 			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			texture->Alpha.Set(1.0);
 			lMaterial->Specular.ConnectSrcObject(texture);
 		}
 
@@ -514,6 +516,7 @@ void DBConverter::CreateMaterials() {
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
 			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			texture->Alpha.Set(1.0);
 			lMaterial->NormalMap.ConnectSrcObject(texture);
 		}
 
@@ -523,7 +526,23 @@ void DBConverter::CreateMaterials() {
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
 			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			texture->Alpha.Set(1.0);
 			lMaterial->Emissive.ConnectSrcObject(texture);
+		}
+
+		if (mat->Opacity != "") {
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, "Opacity Texture");
+			texture->SetFileName(mat->Opacity.c_str()); // Resource file is in current directory.
+			texture->SetTextureUse(FbxTexture::eStandard);
+			texture->SetMappingType(FbxTexture::eUV);
+			texture->SetMaterialUse(FbxFileTexture::eModelMaterial);
+			texture->Alpha.Set(1.0);
+			lMaterial->TransparentColor.ConnectSrcObject(texture);
+			lMaterial->TransparencyFactor.ConnectSrcObject(texture);
+		}
+		else {
+			lMaterial->TransparentColor.Set(FbxDouble3(1.0f, 1.0f, 1.0f));
+			lMaterial->TransparencyFactor.Set(1.0f);
 		}
 
 
