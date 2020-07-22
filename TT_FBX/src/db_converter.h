@@ -19,6 +19,7 @@
 #include <vector>
 #include <map>
 #include <regex>
+#include "tchar.h"
 
 
 // Custom
@@ -36,7 +37,6 @@ class DBConverter {
 
 	void Shutdown(int code, const char* errorMessage = NULL);
 	void WriteLog(std::string message, bool warning = false);
-	int Init(const char* dbFilePath);
 	
 	void ReadDB();
 	void CreateScene();
@@ -50,6 +50,7 @@ class DBConverter {
 	sqlite3_stmt* MakeSqlStatement(std::string query);
 	bool GetRow(sqlite3_stmt* statement);
 
+	int Init(std::wstring dbFilePath);
 public:
-	int ConvertDB(const char* dbFile);
+	int ConvertDB(std::wstring dbFile);
 };

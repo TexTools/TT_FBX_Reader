@@ -1,11 +1,21 @@
 
 #include <fbx_importer.h>
 
+
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
 const std::regex meshRegex(".*[_ ^][0-9][\\.\\-]?[0-9]?$");
 const std::regex extractMeshInfoRegex(".*[_ ^]([0-9])[\\.\\-]?([0-9])?$");
 
+
+std::string utf8_encode(const std::wstring& wstr)
+{
+	if (wstr.empty()) return std::string();
+	int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+	std::string strTo(size_needed, 0);
+	WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+	return strTo;
+}
 
 inline bool FBXImporter::file_exists(const std::string& name) {
 
@@ -23,11 +33,12 @@ inline bool FBXImporter::file_exists(const std::string& name) {
  * Attempts to initialize the SQLite Database and FBX scene.
  * Returns 0 on success, non-zero on error.
  */
-int FBXImporter::Init(const char* fbxFilePath, sqlite3** database, FbxManager** manager, FbxScene** scene) {
+int FBXImporter::Init(std::wstring fbxFilePath, sqlite3** database, FbxManager** manager, FbxScene** scene) {
 
 	char* zErrMsg = 0;
 	int rc;
-	fprintf(stdout, "Attempting to process FBX: %s\n", fbxFilePath);
+	auto utf = utf8_encode(fbxFilePath);
+	fprintf(stdout, "Attempting to process FBX: %ls\n", fbxFilePath.c_str());
 
 	if (file_exists(dbPath)) {
 		int failure = remove(dbPath);
@@ -82,7 +93,9 @@ int FBXImporter::Init(const char* fbxFilePath, sqlite3** database, FbxManager** 
 	// In this case, we are assuming the file is in the same directory as the executable.
 
 	// Initialize the importer.
-	bool success = importer->Initialize(fbxFilePath, -1, (*manager)->GetIOSettings());
+	//auto stream = FbxStream:::Open()
+
+	bool success = importer->Initialize(utf.c_str(), -1, (*manager)->GetIOSettings());
 
 	// Use the first argument as the filename for the importer.
 	if (!success) {
@@ -759,7 +772,7 @@ void FBXImporter::TestNode(FbxNode* pNode) {
 		TestNode(pNode->GetChild(j));
 }
 
-int FBXImporter::ImportFBX(const char* fbxfilepath) {
+int FBXImporter::ImportFBX(std::wstring fbxfilepath) {
 	// Try to load all the things.
 	int result = Init(fbxfilepath, &db, &manager, &scene);
 	if (result != 0) {

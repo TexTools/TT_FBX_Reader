@@ -98,6 +98,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\eigen\;$(SolutionDir)TT_FBX\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -138,6 +139,7 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\eigen\;D:\dev\TT_FBX\TT_FBX\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -179,7 +181,6 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\external\sqlite\shell.c" />
     <ClCompile Include="..\external\sqlite\sqlite3.c" />
     <ClCompile Include="src\db_converter.cpp" />
     <ClCompile Include="src\fbx_importer.cpp" />

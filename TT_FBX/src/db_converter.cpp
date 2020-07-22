@@ -42,16 +42,16 @@ sqlite3_stmt* DBConverter::MakeSqlStatement(std::string query) {
  * Attempts to initialize the SQLite Database and FBX scene.
  * Returns 0 on success, non-zero on error.
  */
-int DBConverter::Init(const char* dbFilePath) {
+int DBConverter::Init(std::wstring dbFilePath) {
 
 	char* zErrMsg = 0;
 	int rc;
 	fprintf(stdout, "Attempting to process DB File: %s\n", dbFilePath);
 
 	// Create and connect to the database file.
-	rc = sqlite3_open(dbFilePath, &db);
+	rc = sqlite3_open16(dbFilePath.c_str(), &db);
 	if (rc) {
-		fprintf(stderr, "Failed to connect to database: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, "Failed to connect to database: %ls\n", sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return(103);
 	}
@@ -781,7 +781,7 @@ void DBConverter::ExportScene() {
 	exporter->Destroy();
 }
 
-int DBConverter::ConvertDB(const char* dbFile) {
+int DBConverter::ConvertDB(std::wstring dbFile) {
 	int ret = Init(dbFile);
 	if (ret != 0) {
 		return ret;

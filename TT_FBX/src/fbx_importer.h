@@ -16,9 +16,13 @@
 #include <vector>
 #include <map>
 #include <regex>
+#include "tchar.h"
 
 // Custom
 #include <tt_model.h>
+
+// Blegh.  Don't have another good way to convert wstring to utf8 for now.
+#include <windows.h>
 
 class FBXImporter {
 	sqlite3* db;
@@ -30,7 +34,6 @@ class FBXImporter {
 
 
 	inline bool file_exists(const std::string& name);
-	int Init(const char* fbxFilePath, sqlite3** database, FbxManager** manager, FbxScene** scene);
 	void Shutdown(int code, const char* errorMessage = NULL);
 	int GetDirectIndex(FbxMesh* mesh, FbxLayerElementTemplate<FbxVector4>* layerElement, int index_id);
 	int GetDirectIndex(FbxMesh* mesh, FbxLayerElementTemplate<FbxVector2>* layerElement, int index_id);
@@ -57,6 +60,7 @@ class FBXImporter {
 	void SaveNode(FbxNode* node);
 	void WriteWarning(std::string warning);
 
+	int Init(std::wstring fbxFilePath, sqlite3** database, FbxManager** manager, FbxScene** scene);
 public:
-	int ImportFBX(const char* fbxFile);
+	int ImportFBX(std::wstring fbxFile);
 };

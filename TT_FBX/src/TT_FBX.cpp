@@ -6,34 +6,39 @@
 #include "tchar.h"
 #include <regex>
 
+// Blegh.  Need to replace this later with a better UTF8 converter.
+#include <windows.h>
+
 // Custom
 #include <fbx_importer.h>
 #include <db_converter.h>
 
 //using namespace FbxSdk;
 
-const std::regex dbRegex(".*\\.db$");
+const std::wregex dbRegex(L".*\\.db$");
 
 
 /**
  * Program entry point, yaaaay.
  */
-int main(int argc, _TCHAR* argv[]) {
-
+int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
+{
 	if (argc < 2) {
 		fprintf(stderr, "No file path supplied.\n");
 		return(101);
 	}
 
+	wchar_t* base = argv[1];
 
-	std::cmatch m;
-	bool success = std::regex_match(argv[1], m, dbRegex);
+	std::wcmatch m;
+	std::wstring arg = argv[1];
+	bool success = std::regex_match(arg.c_str(), m, dbRegex);
 	if (!success) {
 		FBXImporter* fbxImporter = new FBXImporter();
-		return fbxImporter->ImportFBX(argv[1]);
+		return fbxImporter->ImportFBX(arg);
 	}
 	else {
 		DBConverter* dbConverter = new DBConverter();
-		return dbConverter->ConvertDB(argv[1]);
+		return dbConverter->ConvertDB(arg);
 	}
 }
