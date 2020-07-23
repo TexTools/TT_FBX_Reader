@@ -452,7 +452,7 @@ void DBConverter::CreateScene() {
 
 	std::vector<FbxNode*> meshGroupNodes;
 	for (int i = 0; i < ttModel->MeshGroups.size(); i++) {
-		FbxNode* node = FbxNode::Create(manager, std::string("Group " + std::to_string(i)).c_str());
+		FbxNode* node = FbxNode::Create(manager, std::string(ttModel->Name + " Group " + std::to_string(i)).c_str());
 		meshGroupNodes.push_back(node);
 		firstNode->AddChild(node);
 
@@ -619,7 +619,7 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	// Create a mesh object
 
-	std::string partName = std::string("Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
+	std::string partName = std::string(ttModel->Name + " Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
 	FbxMesh* mesh = FbxMesh::Create(manager, std::string(partName + " Mesh Attribute").c_str());
 
 	// Set the mesh as the node attribute of the node
