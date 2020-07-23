@@ -104,6 +104,7 @@ public:
 
 class TTMaterial {
 public:
+    std::string Name;
     std::string Normal;
     std::string Specular;
     std::string Emissive;

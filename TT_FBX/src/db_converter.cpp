@@ -223,7 +223,8 @@ void DBConverter::ReadDB() {
 	sqlite3_finalize(query);
 
 	// Materials
-	query = MakeSqlStatement("select material_id, diffuse, normal, specular, opacity, emissive from materials order by material_id asc");
+	query = MakeSqlStatement("select material_id, diffuse, normal, specular, opacity, emissive, name from materials order by material_id asc");
+	int matId = 0;
 	while (GetRow(query)) {
 
 		int material_id = sqlite3_column_int(query, 0);
@@ -252,6 +253,14 @@ void DBConverter::ReadDB() {
 		if (s != NULL) {
 			ttModel->Materials[material_id]->Emissive = std::string(s);
 		}
+		s = (char*)sqlite3_column_text(query, 6);
+		if (s != NULL) {
+			ttModel->Materials[material_id]->Name = std::string(s);
+		}
+		else {
+			ttModel->Materials[material_id]->Name = std::string("Material " + std::to_string(matId));
+		}
+		matId++;
 	}
 	sqlite3_finalize(query);
 
@@ -476,8 +485,7 @@ void DBConverter::CreateMaterials() {
 	for (int i = 0; i < ttModel->Materials.size(); i++)
 	{
 		auto* mat = ttModel->Materials[i];
-		FbxString lMaterialName = "material_";
-		lMaterialName += i;
+		FbxString lMaterialName = mat->Name.c_str();
 		FbxDouble3 white = FbxDouble3(1.0f, 1.0f, 1.0f);
 		FbxDouble3 black = FbxDouble3(0.f, 0.f, 0.f);
 		FbxSurfacePhong* lMaterial = FbxSurfacePhong::Create(scene, lMaterialName.Buffer());
@@ -491,7 +499,7 @@ void DBConverter::CreateMaterials() {
 		lMaterial->Shininess.Set(0.5);
 
 		if (mat->Diffuse != "") {
-			FbxFileTexture* texture = FbxFileTexture::Create(scene, "Diffuse Texture");
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, std::string(mat->Name + " Diffuse").c_str());
 			texture->SetFileName(mat->Diffuse.c_str()); // Resource file is in current directory.
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
@@ -501,7 +509,7 @@ void DBConverter::CreateMaterials() {
 		}
 
 		if (mat->Specular != "") {
-			FbxFileTexture*  texture = FbxFileTexture::Create(scene, "Specular Texture");
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, std::string(mat->Name + " Specular").c_str());
 			texture->SetFileName(mat->Specular.c_str()); // Resource file is in current directory.
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
@@ -511,7 +519,7 @@ void DBConverter::CreateMaterials() {
 		}
 
 		if (mat->Normal != "") {
-			FbxFileTexture*  texture = FbxFileTexture::Create(scene, "Normal Texture");
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, std::string(mat->Name + " Normal").c_str());
 			texture->SetFileName(mat->Normal.c_str()); // Resource file is in current directory.
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
@@ -521,7 +529,7 @@ void DBConverter::CreateMaterials() {
 		}
 
 		if (mat->Emissive != "") {
-			FbxFileTexture*  texture = FbxFileTexture::Create(scene, "Emissive Texture");
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, std::string(mat->Name + " Emissive").c_str());
 			texture->SetFileName(mat->Emissive.c_str()); // Resource file is in current directory.
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
@@ -531,7 +539,7 @@ void DBConverter::CreateMaterials() {
 		}
 
 		if (mat->Opacity != "") {
-			FbxFileTexture* texture = FbxFileTexture::Create(scene, "Opacity Texture");
+			FbxFileTexture* texture = FbxFileTexture::Create(scene, std::string(mat->Name + " Opacity").c_str());
 			texture->SetFileName(mat->Opacity.c_str()); // Resource file is in current directory.
 			texture->SetTextureUse(FbxTexture::eStandard);
 			texture->SetMappingType(FbxTexture::eUV);
