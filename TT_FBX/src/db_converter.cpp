@@ -709,6 +709,7 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	for (int bi = 0; bi < part->MeshGroup->Bones.size(); bi++) {
 		auto boneName = part->MeshGroup->Bones[bi];
 		TTBone* bone = ttModel->GetBone(boneName);
+		if (bone == NULL) continue;
 
 		// Create a cluster for it.
 		FbxCluster* cluster = FbxCluster::Create(scene, std::string(partName + " " + boneName + " Cluster").c_str());
