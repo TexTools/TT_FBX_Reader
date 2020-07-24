@@ -4,8 +4,8 @@
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-const std::regex meshRegex(".*[_ ^][0-9][\\.\\-]?[0-9]?$");
-const std::regex extractMeshInfoRegex(".*[_ ^]([0-9])[\\.\\-]?([0-9])?$");
+const std::regex meshRegex(".*[_ ^][0-9]+[\\.\\-]?[0-9]+?$");
+const std::regex extractMeshInfoRegex(".*[_ ^]([0-9]+)[\\.\\-]?([0-9]+)?$");
 
 
 std::string utf8_encode(const std::wstring& wstr)
