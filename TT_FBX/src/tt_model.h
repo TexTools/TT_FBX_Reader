@@ -69,6 +69,9 @@ public:
     FbxColor VertexColor;
     TTWeightSet WeightSet;
 
+    int UV1Index;
+    int UV2Index;
+
 
     // Overload equality to test memberwise.
     friend bool operator== (const TTVertex& a, const TTVertex& b) {
@@ -78,6 +81,10 @@ public:
         if (a.UV2 != b.UV2) return false;
         if (a.VertexColor != b.VertexColor) return false;
         if (a.WeightSet != b.WeightSet) return false;
+
+        // Compare UVs by index as well.
+        if (a.UV1Index != b.UV1Index) return false;
+        if (a.UV2Index != b.UV2Index) return false;
 
 
 

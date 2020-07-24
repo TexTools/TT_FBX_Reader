@@ -4,7 +4,7 @@
 
 const char* initScript = "SQL/CreateDB.SQL";
 const char* dbPath = "result.db";
-const std::regex meshRegex(".*[_ ^][0-9]+[\\.\\-]?[0-9]+?$");
+const std::regex meshRegex(".*[_ ^][0-9]+[\\.\\-]?([0-9]+)?$");
 const std::regex extractMeshInfoRegex(".*[_ ^]([0-9]+)[\\.\\-]?([0-9]+)?$");
 
 
@@ -286,6 +286,33 @@ FbxVector2 FBXImporter::GetUV1(FbxMesh* const mesh, int index_id) {
 	FbxLayerElementUV* uvs = layer->GetUVs();
 	int index = GetDirectIndex(mesh, uvs, index_id);
 	return index == -1 ? def : uvs->GetDirectArray().GetAt(index);
+}
+
+// Get the raw uv1 value for a triangle index.
+int FBXImporter::GetUV1Index(FbxMesh* const mesh, int index_id) {
+	FbxVector2 def = FbxVector2(0, 0);
+	if (mesh->GetLayerCount() < 1) {
+		return -1;
+	}
+
+	FbxLayer* layer = mesh->GetLayer(0);
+	FbxLayerElementUV* uvs = layer->GetUVs();
+
+
+	return GetDirectIndex(mesh, uvs, index_id);
+}
+
+// Get the raw uv1 value for a triangle index.
+int FBXImporter::GetUV2Index(FbxMesh* const mesh, int index_id) {
+	FbxVector2 def = FbxVector2(0, 0);
+	if (mesh->GetLayerCount() < 1) {
+		return -1;
+	}
+
+	FbxLayer* layer = mesh->GetLayer(0);
+	FbxLayerElementUV* uvs = layer->GetUVs();
+
+	return GetDirectIndex(mesh, uvs, index_id);
 }
 
 // Get the raw uv2 value for a triangle index.
@@ -640,6 +667,9 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
 			myVert.WeightSet = weightSets[controlPointIndex];
+
+			myVert.UV1Index = GetUV1Index(mesh, indexId);
+			myVert.UV2Index= GetUV2Index(mesh, indexId);
 
 			// Loop through the shared vertices to see if we already have an identical entry.
 			int sharedVertToUse = -1;
