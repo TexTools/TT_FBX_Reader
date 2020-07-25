@@ -44,7 +44,7 @@ int FBXImporter::Init(std::wstring fbxFilePath, sqlite3** database, FbxManager**
 		int failure = remove(dbPath);
 		if (failure != 0) {
 			fprintf(stderr, "Unable to remove existing database.\n");
-			return(102);
+			return 102;
 		}
 
 	}
@@ -54,7 +54,7 @@ int FBXImporter::Init(std::wstring fbxFilePath, sqlite3** database, FbxManager**
 	if (rc) {
 		fprintf(stderr, "Failed to create database: %s\n", sqlite3_errmsg(*database));
 		sqlite3_close(*database);
-		return(103);
+		return 103;
 	}
 
 
@@ -536,8 +536,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	FbxSkin* skin = GetSkin(mesh);
 	if (skin == NULL) {
 		// Mesh does not actually have a skin.
-		WriteWarning("Ignored mesh: " + meshName + " - Mesh did not have a valid skin element.");
-		return;
+		WriteWarning("Mesh: " + meshName + " - Does not have a valid skin element.  This will cause animation issues if this is intended to be an animated mesh.");
 	}
 
 	auto worldTransform = node->EvaluateGlobalTransform();
@@ -593,20 +592,22 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		controlToPolyArray[controlPointIndex].push_back(i);
 	}
 
-	int numClusters = skin->GetClusterCount();
-	// Loop all the clusters and populate the weight sets.
-	for (int i = 0; i < numClusters; i++) {
-		FbxCluster::ELinkMode mode = skin->GetCluster(i)->GetLinkMode();
-		std::string name = skin->GetCluster(i)->GetLink()->GetName();
-		int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
+	if (skin != NULL) {
+		int numClusters = skin->GetClusterCount();
+		// Loop all the clusters and populate the weight sets.
+		for (int i = 0; i < numClusters; i++) {
+			FbxCluster::ELinkMode mode = skin->GetCluster(i)->GetLinkMode();
+			std::string name = skin->GetCluster(i)->GetLink()->GetName();
+			int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
 
-		int boneIdx = GetBoneId(meshNum, name);
+			int boneIdx = GetBoneId(meshNum, name);
 
 
-		for (int vi = 0; vi < affectedVertCount; vi++) {
-			int cpIndex = skin->GetCluster(i)->GetControlPointIndices()[vi];
-			double weight = skin->GetCluster(i)->GetControlPointWeights()[vi];
-			weightSets[cpIndex].Add(boneIdx, weight);
+			for (int vi = 0; vi < affectedVertCount; vi++) {
+				int cpIndex = skin->GetCluster(i)->GetControlPointIndices()[vi];
+				double weight = skin->GetCluster(i)->GetControlPointWeights()[vi];
+				weightSets[cpIndex].Add(boneIdx, weight);
+			}
 		}
 	}
 
