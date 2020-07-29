@@ -118,8 +118,13 @@ int FBXImporter::Init(std::wstring fbxFilePath, sqlite3** database, FbxManager**
 	auto unit = (*scene)->GetGlobalSettings().GetSystemUnit();
 
 	// Convert the scene to meters.
+	/*
 	FbxSystemUnit::m.ConvertScene(*scene);
-
+	auto up = FbxAxisSystem::EUpVector::eYAxis;
+	auto front = FbxAxisSystem::EFrontVector::eParityOdd;
+	auto handedness = FbxAxisSystem::eRightHanded;
+	FbxAxisSystem dbAxis(up, front, handedness);
+	dbAxis.ConvertScene(*scene);*/
 
 	return 0;
 }
@@ -637,6 +642,8 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	std::vector<int> ttTriIndexes;
 	ttTriIndexes.resize(numIndices);
 
+	auto normalMatri = worldTransform.Inverse().Transpose();
+
 	// Time to convert all the data to TTVertices.
 	// Start by looping over the groups of shared vertices.
 	unsigned int vertCount = controlToPolyArray.size();
@@ -660,10 +667,14 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			TTVertex myVert;
 			int controlPointIndex = mesh->GetPolygonVertex(indexId / 3, indexId % 3);
 			auto vertWorldPosition = worldTransform.MultT(GetPosition(mesh, indexId));
-			//auto vertWorldNormal = worldTransform.MultT(GetNormal(mesh, indexId));
+
+			
+			auto vertWorldNormal = normalMatri.MultT(GetNormal(mesh, indexId));
+			auto localNormal = GetNormal(mesh, indexId);
+			vertWorldNormal.Normalize();
 
 			myVert.Position = vertWorldPosition;
-			myVert.Normal = GetNormal(mesh, indexId);
+			myVert.Normal = vertWorldNormal;
 			myVert.VertexColor = GetVertexColor(mesh, indexId);
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
@@ -703,8 +714,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 
 	// We now have a fully populated TT Vertex list
 	// And a fully populated triangle Index list that references it.
-	int asdf = 4;
-	asdf++;
+
 
 	// Start by writing the tri indexes.
 	const std::string startTransaction = "BEGIN TRANSACTION;";
