@@ -497,7 +497,7 @@ void FBXImporter::MakeMeshPart(int mesh, int part, std::string name, std::string
 		// Pop the name and entry into the DB too.
 		// We don't really care about having an accurate material ID here, as TexTools doesn't read it on
 		// import anyways.
-		std::string insertStatement = "insert into meshes (mesh, name, material_id) values (?1, ?2, 0)";
+		std::string insertStatement = "insert into meshes (mesh, name, material_id, model) values (?1, ?2, 0, 0)";
 		sqlite3_stmt* query = MakeSqlStatement(insertStatement);
 		sqlite3_bind_int(query, 1, mesh);
 		sqlite3_bind_text(query, 2, parentName.c_str(), parentName.length(), NULL);

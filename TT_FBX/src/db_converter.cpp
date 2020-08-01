@@ -147,7 +147,11 @@ void DBConverter::ReadDB() {
 			ttModel->Units = value;
 		}
 		else if (key == "name") {
-			ttModel->Name = value;
+			// Use the old name field if we have one.
+			ttModel->RootName = value;
+		}
+		else if (key == "root_name") {
+			ttModel->RootName = value;
 		}
 		else if (key == "up") {
 			ttModel->Up = value[0];
@@ -167,8 +171,27 @@ void DBConverter::ReadDB() {
 	}
 	sqlite3_finalize(query);
 
+	// Models (Really just model names for now)
+	query = MakeSqlStatement("select model, name from models");
+	while (GetRow(query)) {
+		int ModelNameId = sqlite3_column_int(query, 0);
+
+		std::string name = "";
+		auto s = (char*)sqlite3_column_text(query, 1);
+		if (s != NULL) {
+			name = std::string(s);
+		}
+
+		while (ModelNameId >= ttModel->ModelNames.size()) {
+			// Root name is used as default.
+			ttModel->ModelNames.push_back(ttModel->RootName);
+		}
+
+		ttModel->ModelNames[ModelNameId] = name;
+	}
+
 	// Meshes
-	query = MakeSqlStatement("select mesh, name, material_id from meshes");
+	query = MakeSqlStatement("select mesh, name, material_id, model from meshes");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 
@@ -179,6 +202,13 @@ void DBConverter::ReadDB() {
 		}
 
 		int materialId = sqlite3_column_int(query, 2);
+		int modelId = sqlite3_column_int(query, 3);
+
+		// Safety fallback.
+		while (modelId >= ttModel->ModelNames.size()) {
+			// Root name is used as default.
+			ttModel->ModelNames.push_back(ttModel->RootName);
+		}
 
 		// Create mesh groups as needed.
 		while (meshId >= ttModel->MeshGroups.size()) {
@@ -187,6 +217,7 @@ void DBConverter::ReadDB() {
 			ttModel->MeshGroups[ttModel->MeshGroups.size() - 1]->MeshId = ttModel->MeshGroups.size() - 1;
 		}
 		ttModel->MeshGroups[meshId]->MaterialId = materialId;
+		ttModel->MeshGroups[meshId]->ModelNameId = modelId;
 		ttModel->MeshGroups[meshId]->Name = name;
 	}
 	sqlite3_finalize(query);
@@ -447,7 +478,7 @@ void DBConverter::CreateScene() {
 	// FFXIV uses Meters for internal units.
 	scene->GetGlobalSettings().SetSystemUnit(FbxSystemUnit::m);
 
-	FbxNode* firstNode = FbxNode::Create(manager, ttModel->Name.c_str());
+	FbxNode* firstNode = FbxNode::Create(manager, ttModel->RootName.c_str());
 	FbxDouble3 rootScale = firstNode->LclScaling.Get();
 	root->AddChild(firstNode);
 	ttModel->Node = firstNode;
@@ -461,7 +492,9 @@ void DBConverter::CreateScene() {
 
 	std::vector<FbxNode*> meshGroupNodes;
 	for (int i = 0; i < ttModel->MeshGroups.size(); i++) {
-		FbxNode* node = FbxNode::Create(manager, std::string(ttModel->Name + " Group " + std::to_string(i)).c_str());
+		// Mesh group headings derive their names from their parent model.
+		std::string modelName = ttModel->ModelNames[ttModel->MeshGroups[i]->ModelNameId];
+		FbxNode* node = FbxNode::Create(manager, std::string(modelName + " Group " + std::to_string(i)).c_str());
 		meshGroupNodes.push_back(node);
 		firstNode->AddChild(node);
 
@@ -627,7 +660,8 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	// Create a mesh object
 
-	std::string partName = std::string(ttModel->Name + " Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
+	std::string modelName = ttModel->ModelNames[part->MeshGroup->ModelNameId];
+	std::string partName = std::string(modelName + " Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
 	FbxMesh* mesh = FbxMesh::Create(manager, std::string(partName + " Mesh Attribute").c_str());
 
 	// Set the mesh as the node attribute of the node

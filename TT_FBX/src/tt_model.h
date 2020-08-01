@@ -139,12 +139,27 @@ public:
     int MaterialId;
     FbxNode* Node;
     TTModel* Model;
+
+    // Basic hack workaround for changing child name prefixes.
+    // Not sure if we'll ever need more than one TTModel object
+    // in a scene, but if we do this will be changed to key to the 
+    // actual TTModel entry, and a TTScene parent class for
+    // TTModel should be generated.
+    int ModelNameId;
 };
 
 class TTModel {
 public:
     std::vector<TTMeshGroup*> MeshGroups;
     std::vector<TTMaterial*> Materials;
+
+    // Slightly hacky model name workaround for exporting
+    // multiple models that share skeletons
+    std::vector<std::string> ModelNames;
+
+    // The overall root name that should be used for FBX scene.
+    std::string RootName;
+
     TTBone* FullSkeleton;
     FbxNode* Node;
 
@@ -165,9 +180,6 @@ public:
 
     // Application version number
     std::string Version;
-
-    // Name of the model
-    std::string Name;
 
     TTBone* GetBone(std::string name, TTBone* parent = NULL) {
         if (parent == NULL) {
