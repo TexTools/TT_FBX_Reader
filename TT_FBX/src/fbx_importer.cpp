@@ -544,7 +544,6 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		WriteWarning("Mesh: " + meshName + " - Does not have a valid skin element.  This will cause animation issues if this is intended to be an animated mesh.");
 	}
 
-	auto worldTransform = node->EvaluateGlobalTransform();
 
 	//boost::match_results<std::string::const_iterator> results;
 
@@ -642,7 +641,9 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	std::vector<int> ttTriIndexes;
 	ttTriIndexes.resize(numIndices);
 
-	auto normalMatri = worldTransform.Inverse().Transpose();
+
+	auto worldTransform = node->EvaluateGlobalTransform();
+	auto normalMatri = node->EvaluateGlobalTransform().Inverse().Transpose();
 
 	// Time to convert all the data to TTVertices.
 	// Start by looping over the groups of shared vertices.
