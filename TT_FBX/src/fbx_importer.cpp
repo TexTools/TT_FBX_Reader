@@ -118,13 +118,12 @@ int FBXImporter::Init(std::wstring fbxFilePath, sqlite3** database, FbxManager**
 	auto unit = (*scene)->GetGlobalSettings().GetSystemUnit();
 
 	// Convert the scene to meters.
-	/*
 	FbxSystemUnit::m.ConvertScene(*scene);
 	auto up = FbxAxisSystem::EUpVector::eYAxis;
 	auto front = FbxAxisSystem::EFrontVector::eParityOdd;
 	auto handedness = FbxAxisSystem::eRightHanded;
 	FbxAxisSystem dbAxis(up, front, handedness);
-	dbAxis.ConvertScene(*scene);*/
+	dbAxis.ConvertScene(*scene);
 
 	return 0;
 }
