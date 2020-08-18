@@ -37,7 +37,28 @@ public:
             }
         }
 
-        if (idx == -1) return;
+        // We are already at max weights.  We must decide if one should be replaced.
+        if (idx == -1) {
+
+            int minWeightIdx = -1;
+            double minWeight = 999;
+
+            for (int i = 0; i < _TTW_Max_Weights; i++) {
+                if (Weights[i].Weight < minWeight || minWeightIdx == -1) {
+                    minWeight = Weights[i].Weight;
+                    minWeightIdx = i;
+                }
+            }
+
+            // Our new weight is heavier than the lightest weight.  Replace the lightest.
+            if (weight > minWeight) {
+                idx = minWeightIdx;
+            }
+        }
+
+        if (idx < 0) {
+            return;
+        }
 
         Weights[idx].BoneId = boneId;
         Weights[idx].Weight = weight;
