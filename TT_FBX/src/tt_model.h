@@ -30,15 +30,17 @@ public:
 
     void Add(int boneId, double weight) {
         int idx = -1;
+        int usedWeights = 0;
         for (int i = 0; i < _TTW_Max_Weights; i++) {
             if (Weights[i].BoneId == -1) {
                 idx = i;
                 break;
             }
+            usedWeights++;
         }
 
         // We are already at max weights.  We must decide if one should be replaced.
-        if (idx == -1) {
+        if (usedWeights == 4) {
 
             int minWeightIdx = -1;
             double minWeight = 999;
