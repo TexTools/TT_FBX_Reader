@@ -609,7 +609,9 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			for (int vi = 0; vi < affectedVertCount; vi++) {
 				int cpIndex = skin->GetCluster(i)->GetControlPointIndices()[vi];
 				double weight = skin->GetCluster(i)->GetControlPointWeights()[vi];
-				weightSets[cpIndex].Add(boneIdx, weight);
+				if (cpIndex < weightSets.size()) {
+					weightSets[cpIndex].Add(boneIdx, weight);
+				}
 			}
 		}
 	}
