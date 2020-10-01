@@ -42,6 +42,8 @@ class DBConverter {
 	void CreateScene();
 	void ExportScene();
 
+	FbxMesh* MakeMesh(std::vector<TTVertex> vertices, std::vector<int> indices, std::string meshName);
+	FbxShape* MakeShape(std::vector<TTVertex> vertices, std::string meshName);
 	void AddPartToScene(TTPart* part, FbxNode* parent);
 	void BuildSkeleton(std::vector<TTBone*> bones);
 	void AssignChildren(TTBone* root, std::vector<TTBone*> bones);

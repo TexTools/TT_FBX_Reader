@@ -417,6 +417,49 @@ void DBConverter::ReadDB() {
 	}
 	sqlite3_finalize(query);
 
+	query = MakeSqlStatement("select mesh, part, shape, vertex_id, position_x, position_y, position_z from shape_vertices order by mesh, part, shape, vertex_id");
+	while (GetRow(query)) {
+		int meshId = sqlite3_column_int(query, 0);
+		int partId = sqlite3_column_int(query, 1);
+		std::string name = std::string(reinterpret_cast<const char*>(sqlite3_column_text(query, 2)));
+		int vertexId = sqlite3_column_int(query, 3);
+
+		auto part = ttModel->MeshGroups[meshId]->Parts[partId];
+		if (part->Shapes.count(name) == 0) {
+			auto shp = new TTShapePart();
+			shp->Name = name;
+			part->Shapes.insert({ name, shp });
+		}
+
+		auto shape = part->Shapes[name];
+
+		// Assign new position data.
+		TTVertex v;
+		v.Position[0] = sqlite3_column_double(query, 4);
+		v.Position[1] = sqlite3_column_double(query, 5);
+		v.Position[2] = sqlite3_column_double(query, 6);
+
+		auto rep = part->Vertices[vertexId];
+
+		// Copy over other values for convenience.
+		v.Normal = rep.Normal;
+		v.UV1 = rep.UV1;
+		v.UV2 = rep.UV2;
+
+		v.WeightSet.Weights[0] = rep.WeightSet.Weights[0];
+		v.WeightSet.Weights[1] = rep.WeightSet.Weights[1];
+		v.WeightSet.Weights[2] = rep.WeightSet.Weights[2];
+		v.WeightSet.Weights[3] = rep.WeightSet.Weights[3];
+
+		v.VertexColor[0] = rep.VertexColor[0];
+		v.VertexColor[1] = rep.VertexColor[1];
+		v.VertexColor[2] = rep.VertexColor[2];
+		v.VertexColor[3] = rep.VertexColor[3];
+
+
+		shape->VertexReplacements.insert({vertexId, v});
+	}
+
 
 	int z = 0;
 	z++;
@@ -657,31 +700,11 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 	}
 }
 
-void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
-	// Create a mesh object
+FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> indices, std::string meshName) {
+	FbxMesh* mesh = FbxMesh::Create(manager, meshName.c_str());
 
-	std::string modelName = ttModel->ModelNames[part->MeshGroup->ModelNameId];
-	std::string partName = std::string(modelName + " Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
-	FbxMesh* mesh = FbxMesh::Create(manager, std::string(partName + " Mesh Attribute").c_str());
-
-	// Set the mesh as the node attribute of the node
-	FbxNode* node = FbxNode::Create(manager, partName.c_str());
-	part->Node = node;
-	parent->AddChild(node);
-	node->SetNodeAttribute(mesh);
-
-	// set the shading mode to view texture
-	node->SetShadingMode(FbxNode::eTextureShading);
-
-	mesh->InitControlPoints(part->Vertices.size());
-	mesh->InitNormals(part->Vertices.size());
-	node->AddMaterial(ttModel->Materials[part->MeshGroup->MaterialId]->Material);
-
-	int nbMat = node->GetMaterialCount();
-	int nbMat1 = node->GetSrcObjectCount<FbxSurfaceMaterial>();
-
-	FbxGeometryElementMaterial* lMaterialElement = mesh->CreateElementMaterial();
-	lMaterialElement->SetMappingMode(FbxGeometryElement::eAllSame);
+	mesh->InitControlPoints(vertices.size());
+	mesh->InitNormals(vertices.size());
 
 	// Not sure what's up with this, but you have to specify by control point,
 	// then actually write the direct array by polygon index.
@@ -701,31 +724,111 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 
 	FbxVector4* cps = mesh->GetControlPoints();
 
-	for (int i = 0; i < part->Vertices.size(); i++) {
-		TTVertex v = part->Vertices[i];
+	for (int i = 0; i < vertices.size(); i++) {
+		TTVertex v = vertices[i];
 
 		mesh->SetControlPointAt(v.Position, v.Normal, i);
 		uvElement->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
 		uv2Layer->GetDirectArray().Add(FbxVector2(v.UV2[0], v.UV2[1]));
 	}
 
-	for (int i = 0; i < part->Indices.size(); i += 3) {
+	for (int i = 0; i < indices.size(); i += 3) {
 		mesh->BeginPolygon();
-		mesh->AddPolygon(part->Indices[i]);
-		mesh->AddPolygon(part->Indices[i + 1]);
-		mesh->AddPolygon(part->Indices[i + 2]);
+		mesh->AddPolygon(indices[i]);
+		mesh->AddPolygon(indices[i + 1]);
+		mesh->AddPolygon(indices[i + 2]);
 		mesh->EndPolygon();
 
-		TTVertex vert1 = part->Vertices[part->Indices[i]];
-		TTVertex vert2 = part->Vertices[part->Indices[i+1]];
-		TTVertex vert3 = part->Vertices[part->Indices[i+2]];
+		TTVertex vert1 = vertices[indices[i]];
+		TTVertex vert2 = vertices[indices[i + 1]];
+		TTVertex vert3 = vertices[indices[i + 2]];
 		colorElement->GetDirectArray().Add(vert1.VertexColor);
 		colorElement->GetDirectArray().Add(vert2.VertexColor);
 		colorElement->GetDirectArray().Add(vert3.VertexColor);
 
 		colorElement->GetIndexArray().Add(i);
-		colorElement->GetIndexArray().Add(i+1);
-		colorElement->GetIndexArray().Add(i+2);
+		colorElement->GetIndexArray().Add(i + 1);
+		colorElement->GetIndexArray().Add(i + 2);
+	}
+
+	return mesh;
+}
+
+FbxShape* DBConverter::MakeShape(std::vector<TTVertex> vertices, std::string meshName) {
+	FbxShape* mesh = FbxShape::Create(manager, meshName.c_str());
+
+	mesh->InitControlPoints(vertices.size());
+	mesh->InitNormals(vertices.size());
+
+	mesh->InitControlPoints(vertices.size());
+	mesh->InitNormals(vertices.size());
+
+	FbxVector4* cps = mesh->GetControlPoints();
+
+	for (int i = 0; i < vertices.size(); i++) {
+		TTVertex v = vertices[i];
+
+		mesh->SetControlPointAt(v.Position, v.Normal, i);
+	}
+
+	return mesh;
+}
+
+
+void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
+	// Create a mesh object
+
+	std::string modelName = ttModel->ModelNames[part->MeshGroup->ModelNameId];
+	std::string partName = std::string(modelName + " Part " + std::to_string(part->MeshGroup->MeshId) + "." + std::to_string(part->PartId));
+
+
+	// Set the mesh as the node attribute of the node
+	FbxNode* node = FbxNode::Create(manager, partName.c_str());
+	part->Node = node;
+	parent->AddChild(node);
+
+	auto mesh = MakeMesh(part->Vertices, part->Indices, std::string(partName + " Mesh Attribute"));
+	node->SetNodeAttribute(mesh);
+
+	// set the shading mode to view texture
+	node->SetShadingMode(FbxNode::eTextureShading);
+
+	node->AddMaterial(ttModel->Materials[part->MeshGroup->MaterialId]->Material);
+
+	int nbMat = node->GetMaterialCount();
+	int nbMat1 = node->GetSrcObjectCount<FbxSurfaceMaterial>();
+
+	FbxGeometryElementMaterial* lMaterialElement = mesh->CreateElementMaterial();
+	lMaterialElement->SetMappingMode(FbxGeometryElement::eAllSame);
+
+	// Add the morpher element.
+	auto blendShape = FbxBlendShape::Create(scene, std::string(partName + " Blend Shapes").c_str());
+	mesh->AddDeformer(blendShape);
+
+	
+	for (auto it = part->Shapes.begin(); it != part->Shapes.end(); ++it)
+	{
+		auto shape = it->second;
+		auto channel = FbxBlendShapeChannel::Create(blendShape, shape->Name.c_str());
+		blendShape->AddBlendShapeChannel(channel);
+
+		// Need to make our modified vertex array here.
+		std::vector<TTVertex> shapeVertices;
+
+		for (int i = 0; i < part->Vertices.size(); i++) {
+			auto it = shape->VertexReplacements.find(i);
+			if (it != shape->VertexReplacements.end()) {
+				auto vert = it->second;
+				shapeVertices.push_back(vert);
+			}
+			else {
+				shapeVertices.push_back(part->Vertices[i]);
+			}
+		}
+
+		auto shapeMesh = MakeShape(shapeVertices, shape->Name);
+
+		channel->AddTargetShape(shapeMesh);
 	}
 
 

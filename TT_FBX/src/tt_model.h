@@ -143,15 +143,25 @@ public:
     FbxSurfaceMaterial* Material;
 };
 
+class TTShapePart {
+public:
+    std::string Name;
+
+    // Maps original part vertex ID to new replacement vertex.
+    std::map<int, TTVertex> VertexReplacements;
+};
+
 class TTPart {
 public:
     std::string Name;
     int PartId;
+    std::map<std::string, TTShapePart*> Shapes;
     std::vector<TTVertex> Vertices;
     std::vector<int> Indices;
     FbxNode* Node;
     TTMeshGroup* MeshGroup;
 };
+
 
 class TTMeshGroup {
 public:
