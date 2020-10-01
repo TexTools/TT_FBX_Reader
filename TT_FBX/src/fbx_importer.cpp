@@ -603,6 +603,9 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			std::string name = skin->GetCluster(i)->GetLink()->GetName();
 			int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
 
+
+			if (affectedVertCount == 0) continue;
+
 			int boneIdx = GetBoneId(meshNum, name);
 
 
@@ -616,30 +619,114 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		}
 	}
 
-
 	FbxBlendShape* morpher = GetMorpher(mesh);
-	if (morpher != NULL) {
-		fprintf(stderr, "%s contains an uncollapsed morpher.  Morpher data will be ignored.\n", meshName.c_str());
-		int channelCount = morpher->GetBlendShapeChannelCount();
-		for (int i = 0; i < channelCount; i++) {
-			FbxBlendShapeChannel* channel = morpher->GetBlendShapeChannel(i);
-			FbxSubDeformer::EType subtype = channel->GetSubDeformerType();
-			int shapeCount = channel->GetTargetShapeCount();
-			double pct = channel->DeformPercent;
 
 
-			for (int s = 0; s < shapeCount; s++) {
-				FbxShape* shape = channel->GetTargetShape(s);
-				int indices = shape->GetControlPointIndicesCount();
-				int z = 0;
-				z++;
+	int deformerCount = mesh->GetDeformerCount();
+	std::vector<TTShapePart*> ShapeParts;
+
+	auto vertexCount = mesh->GetControlPointsCount();
+	auto meshVerts = mesh->GetControlPoints();
+
+	// Setup our vertex deformation array.
+	auto vertArray = new FbxVector4[vertexCount];
+	memcpy(vertArray, meshVerts, vertexCount * sizeof(FbxVector4));
+
+	bool anyActiveBlends = false;
+
+	// Loop ALL the morphers.
+	for (int i = 0; i < deformerCount; i++) {
+		FbxDeformer* d = mesh->GetDeformer(i);
+		FbxDeformer::EDeformerType dType = d->GetDeformerType();
+		if (dType == FbxDeformer::eBlendShape) {
+			auto morpher = (FbxBlendShape*)d;
+
+			if (morpher != NULL) {
+				int channelCount = morpher->GetBlendShapeChannelCount();
+
+
+
+				// Perform manipulations as needed.
+				for (int i = 0; i < channelCount; i++) {
+					FbxBlendShapeChannel* channel = morpher->GetBlendShapeChannel(i);
+					FbxSubDeformer::EType subtype = channel->GetSubDeformerType();
+					int shapeCount = channel->GetTargetShapeCount();
+
+					if (shapeCount == 0) {
+						continue;
+					}
+					else if(shapeCount > 1) {
+						fprintf(stderr, "%s contains invalid shape channel.  Channel will be ignored.\n", meshName.c_str());
+						continue;
+					}
+
+
+					FbxShape* fbxShape = channel->GetTargetShape(0);
+
+					auto name = std::string(fbxShape->GetName());
+					if (name.rfind("shp_", 0) == 0) {
+						// This is an FFXIV deformation shape.
+						auto shape = new TTShapePart();
+						shape->Name = name;
+						ShapeParts.push_back(shape);
+
+						// Any positions that aren't identical to the base mesh position
+						// needs to be added to the shapes listing.
+						for (int j = 0; j < vertexCount; j++)
+						{
+							auto shapeVert = fbxShape->GetControlPointAt(j);
+							auto baseVert = mesh->GetControlPointAt(j);
+
+							if (shapeVert == baseVert) {
+								continue;
+							}
+							else {
+								TTVertex tVert;
+								tVert.Position = shapeVert;
+								shape->VertexReplacements.insert({ j, tVert });
+							}
+						}
+
+					}
+					else {
+
+						double pct = channel->DeformPercent;
+						if (pct == 0.0) {
+							continue;
+						}
+						fprintf(stdout, "Applying blend shape %s to mesh %s...\n", name.c_str(), meshName.c_str());
+
+						anyActiveBlends = true;
+
+						// This is a generic morph.
+						for (int j = 0; j < vertexCount; j++)
+						{
+							// Add the influence of the shape vertex to the mesh vertex.
+							FbxVector4 lInfluence = (fbxShape->GetControlPoints()[j] - vertArray[j]) * pct * 0.01;
+							vertArray[j] += lInfluence;
+						}
+					}
+				}
 			}
 		}
 	}
 
+	if (anyActiveBlends) {
 
-	std::vector<TTVertex> ttVerticies;
+		// If we had any deforming blends, copy the now deformed vertices
+		// into the base array.
+		auto vertexCount = mesh->GetControlPointsCount();
+		auto meshVerts = mesh->GetControlPoints();
+
+		// Setup our vertex deformation array.
+		auto vertArray = new FbxVector4[vertexCount];
+		memcpy(meshVerts, vertArray, vertexCount * sizeof(FbxVector4));
+	}
+
+
+	std::vector<TTVertex> ttVertices;
 	std::vector<int> ttTriIndexes;
+	std::map<int, std::vector<int>> controlPointToVertexMapping;
 	ttTriIndexes.resize(numIndices);
 
 
@@ -651,7 +738,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	unsigned int vertCount = controlToPolyArray.size();
 	for (unsigned int cpi = 0; cpi < vertCount; cpi++) {
 		unsigned int sharedIndexCount = controlToPolyArray[cpi].size();
-		unsigned int oldSize = ttVerticies.size();
+		unsigned int oldSize = ttVertices.size();
 
 		// No indices, this is an orphaned control point, skip it.
 		if (sharedIndexCount == 0) continue;
@@ -708,10 +795,28 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		}
 
 		// Push all our new vertices into the main list.
-		ttVerticies.resize(oldSize + sharedVerts.size());
+		ttVertices.resize(oldSize + sharedVerts.size());
+		controlPointToVertexMapping.insert({ cpi , std::vector<int>() });
 		for (unsigned int svi = 0; svi < sharedVerts.size(); svi++) {
-			ttVerticies[oldSize + svi] = sharedVerts[svi];
+			ttVertices[oldSize + svi] = sharedVerts[svi];
+			controlPointToVertexMapping[cpi].push_back(oldSize + svi);
 		}
+	}
+
+
+	// Now we need to go through our Shapes and convert them from control point index to TTVertex Index
+	for (int sIdx = 0; sIdx < ShapeParts.size(); sIdx++) {
+		auto shape = ShapeParts[sIdx];
+		std::map<int, TTVertex> newMapping;
+		for (auto it = shape->VertexReplacements.begin(); it != shape->VertexReplacements.end(); ++it) {
+
+			auto cpi = it->first;
+			auto arr = controlPointToVertexMapping[cpi];
+			for (int i = 0; i < arr.size(); i++) {
+				newMapping.insert({ arr[i], it->second });
+			}
+		}
+		shape->VertexReplacements = newMapping;
 	}
 
 	// We now have a fully populated TT Vertex list
@@ -739,54 +844,82 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight)";
 	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,    ?14,    ?15,    ?16,    ?17,       ?18,           ?19,       ?20,           ?21,       ?22,           ?23,       ?24,           ?25)";
 	query = MakeSqlStatement(insertStatement);
-	for (unsigned int i = 0; i < ttVerticies.size(); i++) {
+	for (unsigned int i = 0; i < ttVertices.size(); i++) {
 		sqlite3_bind_int(query, 1, meshNum);
 		sqlite3_bind_int(query, 2, partNum);
 		sqlite3_bind_int(query, 3, i);
 
-		sqlite3_bind_double(query, 4, ttVerticies[i].Position[0]);
-		sqlite3_bind_double(query, 5, ttVerticies[i].Position[1]);
-		sqlite3_bind_double(query, 6, ttVerticies[i].Position[2]);
+		sqlite3_bind_double(query, 4, ttVertices[i].Position[0]);
+		sqlite3_bind_double(query, 5, ttVertices[i].Position[1]);
+		sqlite3_bind_double(query, 6, ttVertices[i].Position[2]);
 
-		sqlite3_bind_double(query, 7, ttVerticies[i].Normal[0]);
-		sqlite3_bind_double(query, 8, ttVerticies[i].Normal[1]);
-		sqlite3_bind_double(query, 9, ttVerticies[i].Normal[2]);
+		sqlite3_bind_double(query, 7, ttVertices[i].Normal[0]);
+		sqlite3_bind_double(query, 8, ttVertices[i].Normal[1]);
+		sqlite3_bind_double(query, 9, ttVertices[i].Normal[2]);
 
-		sqlite3_bind_double(query, 10, ttVerticies[i].VertexColor.mRed);
-		sqlite3_bind_double(query, 11, ttVerticies[i].VertexColor.mGreen);
-		sqlite3_bind_double(query, 12, ttVerticies[i].VertexColor.mBlue);
-		sqlite3_bind_double(query, 13, ttVerticies[i].VertexColor.mAlpha);
+		sqlite3_bind_double(query, 10, ttVertices[i].VertexColor.mRed);
+		sqlite3_bind_double(query, 11, ttVertices[i].VertexColor.mGreen);
+		sqlite3_bind_double(query, 12, ttVertices[i].VertexColor.mBlue);
+		sqlite3_bind_double(query, 13, ttVertices[i].VertexColor.mAlpha);
 
-		sqlite3_bind_double(query, 14, ttVerticies[i].UV1[0]);
-		sqlite3_bind_double(query, 15, ttVerticies[i].UV1[1]);
+		sqlite3_bind_double(query, 14, ttVertices[i].UV1[0]);
+		sqlite3_bind_double(query, 15, ttVertices[i].UV1[1]);
 
-		sqlite3_bind_double(query, 16, ttVerticies[i].UV2[0]);
-		sqlite3_bind_double(query, 17, ttVerticies[i].UV2[1]);
+		sqlite3_bind_double(query, 16, ttVertices[i].UV2[0]);
+		sqlite3_bind_double(query, 17, ttVertices[i].UV2[1]);
 
-		if (ttVerticies[i].WeightSet.Weights[0].BoneId >= 0) {
-			sqlite3_bind_int(query, 18, ttVerticies[i].WeightSet.Weights[0].BoneId);
-			sqlite3_bind_double(query, 19, ttVerticies[i].WeightSet.Weights[0].Weight);
+		if (ttVertices[i].WeightSet.Weights[0].BoneId >= 0) {
+			sqlite3_bind_int(query, 18, ttVertices[i].WeightSet.Weights[0].BoneId);
+			sqlite3_bind_double(query, 19, ttVertices[i].WeightSet.Weights[0].Weight);
 		}
 
-		if (ttVerticies[i].WeightSet.Weights[1].BoneId >= 0) {
-			sqlite3_bind_int(query, 20, ttVerticies[i].WeightSet.Weights[1].BoneId);
-			sqlite3_bind_double(query, 21, ttVerticies[i].WeightSet.Weights[1].Weight);
+		if (ttVertices[i].WeightSet.Weights[1].BoneId >= 0) {
+			sqlite3_bind_int(query, 20, ttVertices[i].WeightSet.Weights[1].BoneId);
+			sqlite3_bind_double(query, 21, ttVertices[i].WeightSet.Weights[1].Weight);
 		}
 
-		if (ttVerticies[i].WeightSet.Weights[2].BoneId >= 0) {
-			sqlite3_bind_int(query, 22, ttVerticies[i].WeightSet.Weights[2].BoneId);
-			sqlite3_bind_double(query, 23, ttVerticies[i].WeightSet.Weights[2].Weight);
+		if (ttVertices[i].WeightSet.Weights[2].BoneId >= 0) {
+			sqlite3_bind_int(query, 22, ttVertices[i].WeightSet.Weights[2].BoneId);
+			sqlite3_bind_double(query, 23, ttVertices[i].WeightSet.Weights[2].Weight);
 		}
 
-		if (ttVerticies[i].WeightSet.Weights[3].BoneId >= 0) {
-			sqlite3_bind_int(query, 24, ttVerticies[i].WeightSet.Weights[3].BoneId);
-			sqlite3_bind_double(query, 25, ttVerticies[i].WeightSet.Weights[3].Weight);
+		if (ttVertices[i].WeightSet.Weights[3].BoneId >= 0) {
+			sqlite3_bind_int(query, 24, ttVertices[i].WeightSet.Weights[3].BoneId);
+			sqlite3_bind_double(query, 25, ttVertices[i].WeightSet.Weights[3].Weight);
 		}
 
 
 		RunSql(query);
 	}
 	sqlite3_finalize(query);
+
+	// Load Shape Vertices into SQLite DB.
+	insertStatement = "insert into shape_vertices (shape, mesh, part, vertex_id, position_x, position_y, position_z)";
+	insertStatement += "			        values(   ?1,   ?2,   ?3,        ?4,         ?5,         ?6,		 ?7)";
+	query = MakeSqlStatement(insertStatement);
+	for (unsigned int i = 0; i < ShapeParts.size(); i++) {
+		auto shape = ShapeParts[i];
+
+		for (auto it = shape->VertexReplacements.begin(); it != shape->VertexReplacements.end(); ++it) {
+			auto vertexId = it->first;
+			auto vertex = it->second;
+
+			sqlite3_bind_text(query, 1, shape->Name.c_str(), shape->Name.length(), NULL);
+			sqlite3_bind_int(query, 2, meshNum);
+			sqlite3_bind_int(query, 3, partNum);
+			sqlite3_bind_int(query, 4, vertexId);
+
+			sqlite3_bind_double(query, 5, vertex.Position[0]);
+			sqlite3_bind_double(query, 6, vertex.Position[1]);
+			sqlite3_bind_double(query, 7, vertex.Position[2]);
+
+			RunSql(query);
+
+		}
+
+	}
+	sqlite3_finalize(query);
+
 
 	RunSql(endTransaction);
 
