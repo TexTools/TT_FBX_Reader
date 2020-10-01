@@ -700,8 +700,17 @@ void DBConverter::AddBoneToScene(TTBone* bone, FbxPose* bindPose) {
 	}
 }
 
-FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> indices, std::string meshName) {
+FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> indices, std::string meshName, FbxNode* parent, FbxSurfaceMaterial* material) {
+	
 	FbxMesh* mesh = FbxMesh::Create(manager, meshName.c_str());
+	// set the shading mode to view texture
+	parent->SetShadingMode(FbxNode::eTextureShading);
+
+	parent->AddMaterial(material);
+	parent->SetNodeAttribute(mesh);
+	FbxGeometryElementMaterial* lMaterialElement = mesh->CreateElementMaterial();
+	lMaterialElement->SetMappingMode(FbxGeometryElement::eAllSame);
+
 
 	mesh->InitControlPoints(vertices.size());
 	mesh->InitNormals(vertices.size());
@@ -721,8 +730,6 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 	auto* uv2Layer = FbxLayerElementUV::Create(mesh, "uv2");
 	uv2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 	layer2->SetUVs(uv2Layer);
-
-	FbxVector4* cps = mesh->GetControlPoints();
 
 	for (int i = 0; i < vertices.size(); i++) {
 		TTVertex v = vertices[i];
@@ -754,24 +761,60 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 	return mesh;
 }
 
-FbxShape* DBConverter::MakeShape(std::vector<TTVertex> vertices, std::string meshName) {
-	FbxShape* mesh = FbxShape::Create(manager, meshName.c_str());
+void DBConverter::RepopulateMesh(FbxMesh* mesh, std::vector<TTVertex> vertices, std::vector<int> indices, std::string meshName, FbxNode* parent, FbxSurfaceMaterial* material) {
 
-	mesh->InitControlPoints(vertices.size());
-	mesh->InitNormals(vertices.size());
-
-	mesh->InitControlPoints(vertices.size());
-	mesh->InitNormals(vertices.size());
-
-	FbxVector4* cps = mesh->GetControlPoints();
+	FbxGeometryElementVertexColor* colorElement = mesh->GetElementVertexColor();
+	FbxGeometryElementUV* uvElement = mesh->GetElementUV("uv1");
+	FbxGeometryElementUV* uv2Layer = mesh->GetElementUV("uv2");
+	auto normalLayer = mesh->GetElementNormal();
 
 	for (int i = 0; i < vertices.size(); i++) {
 		TTVertex v = vertices[i];
 
-		mesh->SetControlPointAt(v.Position, v.Normal, i);
+		//mesh->SetControlPointAt(v.Position, v.Normal, i);
+		normalLayer->GetDirectArray()[i] = FbxVector4(v.Normal[0], v.Normal[1], v.Normal[2]);
+		uvElement->GetDirectArray()[i] = (FbxVector2(v.UV1[0], v.UV1[1]));
+		uv2Layer->GetDirectArray()[i] = (FbxVector2(v.UV2[0], v.UV2[1]));
 	}
 
-	return mesh;
+	for (int i = 0; i < indices.size(); i += 3) {
+		mesh->BeginPolygon();
+		mesh->AddPolygon(indices[i]);
+		mesh->AddPolygon(indices[i + 1]);
+		mesh->AddPolygon(indices[i + 2]);
+		mesh->EndPolygon();
+
+		TTVertex vert1 = vertices[indices[i]];
+		TTVertex vert2 = vertices[indices[i + 1]];
+		TTVertex vert3 = vertices[indices[i + 2]];
+		colorElement->GetDirectArray().Add(vert1.VertexColor);
+		colorElement->GetDirectArray().Add(vert2.VertexColor);
+		colorElement->GetDirectArray().Add(vert3.VertexColor);
+
+		colorElement->GetIndexArray().Add(i);
+		colorElement->GetIndexArray().Add(i + 1);
+		colorElement->GetIndexArray().Add(i + 2);
+	}
+}
+
+FbxShape* DBConverter::MakeShape(std::vector<TTVertex> vertices, std::string meshName) {
+	FbxShape* shapeMesh = FbxShape::Create(manager, meshName.c_str());
+
+	shapeMesh->InitControlPoints(vertices.size());
+	shapeMesh->InitNormals(vertices.size());
+
+	shapeMesh->InitControlPoints(vertices.size());
+	shapeMesh->InitNormals(vertices.size());
+
+	FbxVector4* cps = shapeMesh->GetControlPoints();
+
+	for (int i = 0; i < vertices.size(); i++) {
+		TTVertex v = vertices[i];
+
+		shapeMesh->SetControlPointAt(v.Position, v.Normal, i);
+	}
+
+	return shapeMesh;
 }
 
 
@@ -787,50 +830,42 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 	part->Node = node;
 	parent->AddChild(node);
 
-	auto mesh = MakeMesh(part->Vertices, part->Indices, std::string(partName + " Mesh Attribute"));
-	node->SetNodeAttribute(mesh);
 
-	// set the shading mode to view texture
-	node->SetShadingMode(FbxNode::eTextureShading);
-
-	node->AddMaterial(ttModel->Materials[part->MeshGroup->MaterialId]->Material);
-
-	int nbMat = node->GetMaterialCount();
-	int nbMat1 = node->GetSrcObjectCount<FbxSurfaceMaterial>();
-
-	FbxGeometryElementMaterial* lMaterialElement = mesh->CreateElementMaterial();
-	lMaterialElement->SetMappingMode(FbxGeometryElement::eAllSame);
-
-	// Add the morpher element.
-	auto blendShape = FbxBlendShape::Create(scene, std::string(partName + " Blend Shapes").c_str());
-	mesh->AddDeformer(blendShape);
-
+	auto material = ttModel->Materials[part->MeshGroup->MaterialId]->Material;
+	auto mesh = MakeMesh(part->Vertices, part->Indices, std::string(partName + " Mesh Attribute"), node, material);
 	
-	for (auto it = part->Shapes.begin(); it != part->Shapes.end(); ++it)
-	{
-		auto shape = it->second;
-		auto channel = FbxBlendShapeChannel::Create(blendShape, shape->Name.c_str());
-		blendShape->AddBlendShapeChannel(channel);
 
-		// Need to make our modified vertex array here.
-		std::vector<TTVertex> shapeVertices;
+	if (part->Shapes.size() > 0) {
+		// Add the morpher element.
+		auto blendShape = FbxBlendShape::Create(scene, std::string(partName + " Blend Shapes").c_str());
+		mesh->AddDeformer(blendShape);
 
-		for (int i = 0; i < part->Vertices.size(); i++) {
-			auto it = shape->VertexReplacements.find(i);
-			if (it != shape->VertexReplacements.end()) {
-				auto vert = it->second;
-				shapeVertices.push_back(vert);
+		for (auto it = part->Shapes.begin(); it != part->Shapes.end(); ++it)
+		{
+			auto shape = it->second;
+			auto channel = FbxBlendShapeChannel::Create(blendShape, std::string("channel_" + shape->Name).c_str());
+
+			// Need to make our modified vertex array here.
+			std::vector<TTVertex> shapeVertices;
+
+			for (int i = 0; i < part->Vertices.size(); i++) {
+				auto it = shape->VertexReplacements.find(i);
+				if (it != shape->VertexReplacements.end()) {
+					auto vert = it->second;
+					shapeVertices.push_back(vert);
+				}
+				else {
+					shapeVertices.push_back(part->Vertices[i]);
+				}
 			}
-			else {
-				shapeVertices.push_back(part->Vertices[i]);
-			}
+
+			auto shapeMesh = MakeShape(shapeVertices, shape->Name);
+			channel->SetMultiLayer(false);
+			channel->AddTargetShape(shapeMesh);
 		}
 
-		auto shapeMesh = MakeShape(shapeVertices, shape->Name);
-
-		channel->AddTargetShape(shapeMesh);
+		//RepopulateMesh(mesh, part->Vertices, part->Indices, std::string(partName + " Mesh Attribute"), node, material);
 	}
-
 
 	// Add the skin element.
 	FbxSkin* skin = FbxSkin::Create(scene, std::string(partName + " Skin Attribute").c_str());
