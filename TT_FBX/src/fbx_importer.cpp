@@ -523,6 +523,25 @@ void FBXImporter::MakeMeshPart(int mesh, int part, std::string name, std::string
 	sqlite3_finalize(query);
 }
 
+static bool NearlyEqual(FbxVector4 a, FbxVector4 b) {
+	double epsilon = 0.000001;
+
+	if (std::abs(a[0] - b[0]) > epsilon) {
+		return false;
+	}
+	if (std::abs(a[1] - b[1]) > epsilon) {
+		return false;
+	}
+	if (std::abs(a[2] - b[2]) > epsilon) {
+		return false;
+	}
+	if (std::abs(a[3] - b[3]) > epsilon) {
+		return false;
+	}
+
+	return true;
+}
+
 /**
  * Saves the given node to the SQLite DB.
  */
@@ -644,12 +663,11 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			if (morpher != NULL) {
 				int channelCount = morpher->GetBlendShapeChannelCount();
 
-
-
 				// Perform manipulations as needed.
 				for (int i = 0; i < channelCount; i++) {
 					FbxBlendShapeChannel* channel = morpher->GetBlendShapeChannel(i);
 					FbxSubDeformer::EType subtype = channel->GetSubDeformerType();
+
 					int shapeCount = channel->GetTargetShapeCount();
 
 					if (shapeCount == 0) {
@@ -663,8 +681,23 @@ void FBXImporter::SaveNode(FbxNode* node) {
 
 					FbxShape* fbxShape = channel->GetTargetShape(0);
 
+
 					auto name = std::string(fbxShape->GetName());
 					if (name.rfind("shp_", 0) == 0) {
+						auto skip = false;
+						for (int i = 0; i < ShapeParts.size(); i++) {
+							if (ShapeParts[i]->Name == name) {
+								skip = true;
+								break;
+							}
+						}
+
+						// Skip over duplicate shapes.
+						if (skip) {
+							fprintf(stderr, "%s has shape: %s included more than once.  Repeated shapes will be ignored.\n", meshName.c_str(), name.c_str());
+							continue;
+						}
+
 						// This is an FFXIV deformation shape.
 						auto shape = new TTShapePart();
 						shape->Name = name;
@@ -677,7 +710,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 							auto shapeVert = fbxShape->GetControlPointAt(j);
 							auto baseVert = mesh->GetControlPointAt(j);
 
-							if (shapeVert == baseVert) {
+							if (NearlyEqual(shapeVert, baseVert)) {
 								continue;
 							}
 							else {
