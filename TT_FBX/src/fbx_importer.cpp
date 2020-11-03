@@ -653,7 +653,10 @@ void FBXImporter::SaveNode(FbxNode* node) {
 
 	bool anyActiveBlends = false;
 
-	// Loop ALL the morphers.
+	auto worldTransform = node->EvaluateGlobalTransform();
+	auto normalMatri = node->EvaluateGlobalTransform().Inverse().Transpose();
+
+	// Loop Deformation Blends first.
 	for (int i = 0; i < deformerCount; i++) {
 		FbxDeformer* d = mesh->GetDeformer(i);
 		FbxDeformer::EDeformerType dType = d->GetDeformerType();
@@ -678,9 +681,79 @@ void FBXImporter::SaveNode(FbxNode* node) {
 						continue;
 					}
 
-
 					FbxShape* fbxShape = channel->GetTargetShape(0);
 
+					auto name = std::string(fbxShape->GetName());
+					if (name.rfind("shp_", 0) == 0) {
+						// No-Op. Handled Later.
+					}
+					else {
+
+						double pct = channel->DeformPercent;
+						if (pct == 0.0) {
+							continue;
+						}
+						fprintf(stdout, "Applying blend shape %s to mesh %s...\n", name.c_str(), meshName.c_str());
+
+						anyActiveBlends = true;
+
+						// This is a generic morph.
+						for (int j = 0; j < vertexCount; j++)
+						{
+							// Add the influence of the shape vertex to the mesh vertex.
+							auto original = fbxShape->GetControlPoints()[j];
+							auto target = vertArray[j];
+							auto diff = original - target;
+							FbxVector4 lInfluence = (diff) * pct * 0.01;
+							auto len = std::abs(lInfluence.Length());
+							if (len > 0) {
+								auto z = 65;
+							}
+							vertArray[j] += lInfluence;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (anyActiveBlends) {
+
+		// If we had any deforming blends, copy the now deformed vertices
+		// into the base array.
+		auto vertexCount = mesh->GetControlPointsCount();
+		auto meshVerts = mesh->GetControlPoints();
+
+		// Setup our vertex deformation array.
+		memcpy(meshVerts, vertArray, vertexCount * sizeof(FbxVector4));
+	}
+
+
+	for (int i = 0; i < deformerCount; i++) {
+		FbxDeformer* d = mesh->GetDeformer(i);
+		FbxDeformer::EDeformerType dType = d->GetDeformerType();
+		if (dType == FbxDeformer::eBlendShape) {
+			auto morpher = (FbxBlendShape*)d;
+
+			if (morpher != NULL) {
+				int channelCount = morpher->GetBlendShapeChannelCount();
+
+				// Perform manipulations as needed.
+				for (int i = 0; i < channelCount; i++) {
+					FbxBlendShapeChannel* channel = morpher->GetBlendShapeChannel(i);
+					FbxSubDeformer::EType subtype = channel->GetSubDeformerType();
+
+					int shapeCount = channel->GetTargetShapeCount();
+
+					if (shapeCount == 0) {
+						continue;
+					}
+					else if (shapeCount > 1) {
+						fprintf(stderr, "%s contains invalid shape channel.  Channel will be ignored.\n", meshName.c_str());
+						continue;
+					}
+
+					FbxShape* fbxShape = channel->GetTargetShape(0);
 
 					auto name = std::string(fbxShape->GetName());
 					if (name.rfind("shp_", 0) == 0) {
@@ -715,56 +788,26 @@ void FBXImporter::SaveNode(FbxNode* node) {
 							}
 							else {
 								TTVertex tVert;
-								tVert.Position = shapeVert;
+								auto worldPos = worldTransform.MultT(shapeVert);
+								tVert.Position = worldPos;
 								shape->VertexReplacements.insert({ j, tVert });
 							}
 						}
 
 					}
 					else {
-
-						double pct = channel->DeformPercent;
-						if (pct == 0.0) {
-							continue;
-						}
-						fprintf(stdout, "Applying blend shape %s to mesh %s...\n", name.c_str(), meshName.c_str());
-
-						anyActiveBlends = true;
-
-						// This is a generic morph.
-						for (int j = 0; j < vertexCount; j++)
-						{
-							// Add the influence of the shape vertex to the mesh vertex.
-							FbxVector4 lInfluence = (fbxShape->GetControlPoints()[j] - vertArray[j]) * pct * 0.01;
-							vertArray[j] += lInfluence;
-						}
+						// No-Op. Handled Previously.
 					}
 				}
 			}
 		}
 	}
 
-	if (anyActiveBlends) {
-
-		// If we had any deforming blends, copy the now deformed vertices
-		// into the base array.
-		auto vertexCount = mesh->GetControlPointsCount();
-		auto meshVerts = mesh->GetControlPoints();
-
-		// Setup our vertex deformation array.
-		auto vertArray = new FbxVector4[vertexCount];
-		memcpy(meshVerts, vertArray, vertexCount * sizeof(FbxVector4));
-	}
-
-
 	std::vector<TTVertex> ttVertices;
 	std::vector<int> ttTriIndexes;
 	std::map<int, std::vector<int>> controlPointToVertexMapping;
 	ttTriIndexes.resize(numIndices);
 
-
-	auto worldTransform = node->EvaluateGlobalTransform();
-	auto normalMatri = node->EvaluateGlobalTransform().Inverse().Transpose();
 
 	// Time to convert all the data to TTVertices.
 	// Start by looping over the groups of shared vertices.
