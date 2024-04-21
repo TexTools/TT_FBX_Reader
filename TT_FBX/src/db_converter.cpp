@@ -1,5 +1,6 @@
 #include <db_converter.h>
 
+bool _UseColor2Channel = true;
 /**
  * Shuts down the system gracefully.
  */
@@ -167,6 +168,9 @@ void DBConverter::ReadDB() {
 		}
 		else if (key == "application") {
 			ttModel->Application = value;
+		}
+		else if (key == "for_3ds_max") {
+			_UseColor2Channel = value == "1" ? false : true;
 		}
 	}
 	sqlite3_finalize(query);
@@ -750,16 +754,33 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 
 	auto* uvLayer = FbxLayerElementUV::Create(mesh, "uv0");
 	uvLayer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
-	layer1->SetUVs(uvLayer);
+	layer0->SetUVs(uvLayer);
 
 	auto* uv2Layer = FbxLayerElementUV::Create(mesh, "uv1");
 	uv2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
-	layer2->SetUVs(uv2Layer);
+	layer1->SetUVs(uv2Layer);
 
 
-	auto* color2Layer = FbxLayerElementVertexColor::Create(mesh, "vc1");
-	color2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
-	layer3->SetUVs(uv2Layer);
+	FbxLayerElementVertexColor* color2Layer = 0;
+	FbxLayerElementUV* color2Layer_rg = 0;
+	FbxLayerElementUV* color2Layer_ba = 0;
+	if (_UseColor2Channel) {
+		color2Layer = FbxLayerElementVertexColor::Create(mesh, "vc1");
+		color2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+		layer1->SetVertexColors(color2Layer);
+	}
+	else {
+		color2Layer_rg = FbxLayerElementUV::Create(mesh, "uv2_vc2_rg");
+		color2Layer_rg->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+		layer3->SetUVs(color2Layer_rg);
+
+		color2Layer_ba = FbxLayerElementUV::Create(mesh, "uv2_vc2_ba");
+		color2Layer_ba->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+		layer4->SetUVs(color2Layer_ba);
+	}
+
+
+
 
 
 
@@ -773,8 +794,14 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 		uvLayer->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
 
 		uv2Layer->GetDirectArray().Add(FbxVector2(v.UV2[0], v.UV2[1]));
-		color2Layer->GetDirectArray().Add(v.VertexColor2);
 
+		if (_UseColor2Channel) {
+			color2Layer->GetDirectArray().Add(v.VertexColor2);
+		}
+		else {
+			color2Layer_rg->GetDirectArray().Add(FbxVector2(v.VertexColor2[0], v.VertexColor2[1]));
+			color2Layer_ba->GetDirectArray().Add(FbxVector2(v.VertexColor2[1], v.VertexColor2[2]));
+		}
 	}
 
 	for (int i = 0; i < indices.size(); i += 3) {
