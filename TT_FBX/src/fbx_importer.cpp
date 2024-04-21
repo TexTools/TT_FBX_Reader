@@ -841,6 +841,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			myVert.Position = vertWorldPosition;
 			myVert.Normal = vertWorldNormal;
 			myVert.VertexColor = GetVertexColor(mesh, indexId);
+			myVert.VertexColor2 = FbxColor(0, 0, 0, 1);
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
 			myVert.WeightSet = weightSets[controlPointIndex];
@@ -917,8 +918,8 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	sqlite3_finalize(query);
 
 	// Load the Vertices into the SQLite DB.
-	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight)";
-	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,    ?14,    ?15,    ?16,    ?17,       ?18,           ?19,       ?20,           ?21,       ?22,           ?23,       ?24,           ?25)";
+	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight)";
+	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,      ?14,      ?15,      ?16,      ?17,    ?18,    ?19,    ?20,    ?21,       ?22,           ?23,       ?24,           ?25,       ?26,           ?27,       ?28,           ?29)";
 	query = MakeSqlStatement(insertStatement);
 	for (unsigned int i = 0; i < ttVertices.size(); i++) {
 		sqlite3_bind_int(query, 1, meshNum);
@@ -938,30 +939,35 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		sqlite3_bind_double(query, 12, ttVertices[i].VertexColor.mBlue);
 		sqlite3_bind_double(query, 13, ttVertices[i].VertexColor.mAlpha);
 
-		sqlite3_bind_double(query, 14, ttVertices[i].UV1[0]);
-		sqlite3_bind_double(query, 15, ttVertices[i].UV1[1]);
+		sqlite3_bind_double(query, 14, ttVertices[i].VertexColor.mRed);
+		sqlite3_bind_double(query, 15, ttVertices[i].VertexColor.mGreen);
+		sqlite3_bind_double(query, 16, ttVertices[i].VertexColor.mBlue);
+		sqlite3_bind_double(query, 17, ttVertices[i].VertexColor.mAlpha);
 
-		sqlite3_bind_double(query, 16, ttVertices[i].UV2[0]);
-		sqlite3_bind_double(query, 17, ttVertices[i].UV2[1]);
+		sqlite3_bind_double(query, 18, ttVertices[i].UV1[0]);
+		sqlite3_bind_double(query, 19, ttVertices[i].UV1[1]);
+
+		sqlite3_bind_double(query, 20, ttVertices[i].UV2[0]);
+		sqlite3_bind_double(query, 21, ttVertices[i].UV2[1]);
 
 		if (ttVertices[i].WeightSet.Weights[0].BoneId >= 0) {
-			sqlite3_bind_int(query, 18, ttVertices[i].WeightSet.Weights[0].BoneId);
-			sqlite3_bind_double(query, 19, ttVertices[i].WeightSet.Weights[0].Weight);
+			sqlite3_bind_int(query, 22, ttVertices[i].WeightSet.Weights[0].BoneId);
+			sqlite3_bind_double(query, 23, ttVertices[i].WeightSet.Weights[0].Weight);
 		}
 
 		if (ttVertices[i].WeightSet.Weights[1].BoneId >= 0) {
-			sqlite3_bind_int(query, 20, ttVertices[i].WeightSet.Weights[1].BoneId);
-			sqlite3_bind_double(query, 21, ttVertices[i].WeightSet.Weights[1].Weight);
+			sqlite3_bind_int(query, 24, ttVertices[i].WeightSet.Weights[1].BoneId);
+			sqlite3_bind_double(query, 25, ttVertices[i].WeightSet.Weights[1].Weight);
 		}
 
 		if (ttVertices[i].WeightSet.Weights[2].BoneId >= 0) {
-			sqlite3_bind_int(query, 22, ttVertices[i].WeightSet.Weights[2].BoneId);
-			sqlite3_bind_double(query, 23, ttVertices[i].WeightSet.Weights[2].Weight);
+			sqlite3_bind_int(query, 26, ttVertices[i].WeightSet.Weights[2].BoneId);
+			sqlite3_bind_double(query, 27, ttVertices[i].WeightSet.Weights[2].Weight);
 		}
 
 		if (ttVertices[i].WeightSet.Weights[3].BoneId >= 0) {
-			sqlite3_bind_int(query, 24, ttVertices[i].WeightSet.Weights[3].BoneId);
-			sqlite3_bind_double(query, 25, ttVertices[i].WeightSet.Weights[3].Weight);
+			sqlite3_bind_int(query, 28, ttVertices[i].WeightSet.Weights[3].BoneId);
+			sqlite3_bind_double(query, 29, ttVertices[i].WeightSet.Weights[3].Weight);
 		}
 
 

@@ -90,6 +90,7 @@ public:
     FbxVector2 UV1;
     FbxVector2 UV2;
     FbxColor VertexColor;
+    FbxColor VertexColor2;
     TTWeightSet WeightSet;
 
     int UV1Index;
@@ -103,6 +104,7 @@ public:
         if (a.UV1 != b.UV1) return false;
         if (a.UV2 != b.UV2) return false;
         if (a.VertexColor != b.VertexColor) return false;
+        if (a.VertexColor2 != b.VertexColor2) return false;
         if (a.WeightSet != b.WeightSet) return false;
 
         // Compare UVs by index as well.

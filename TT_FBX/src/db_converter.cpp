@@ -375,7 +375,7 @@ void DBConverter::ReadDB() {
 	sqlite3_finalize(query);
 
 
-	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight from vertices order by mesh asc, part asc, vertex_id asc");
+	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight from vertices order by mesh asc, part asc, vertex_id asc");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int partId = sqlite3_column_int(query, 1);
@@ -395,23 +395,28 @@ void DBConverter::ReadDB() {
 		v.VertexColor[2] = sqlite3_column_double(query, 11);
 		v.VertexColor[3] = sqlite3_column_double(query, 12);
 
-		v.UV1[0] = sqlite3_column_double(query, 13);
-		v.UV1[1] = sqlite3_column_double(query, 14);
+		v.VertexColor2[0] = sqlite3_column_double(query, 13);
+		v.VertexColor2[1] = sqlite3_column_double(query, 14);
+		v.VertexColor2[2] = sqlite3_column_double(query, 15);
+		v.VertexColor2[3] = sqlite3_column_double(query, 16);
 
-		v.UV2[0] = sqlite3_column_double(query, 15);
-		v.UV2[1] = sqlite3_column_double(query, 16);
+		v.UV1[0] = sqlite3_column_double(query, 17);
+		v.UV1[1] = sqlite3_column_double(query, 18);
 
-		v.WeightSet.Weights[0].BoneId = sqlite3_column_int(query, 17);
-		v.WeightSet.Weights[0].Weight = sqlite3_column_double(query, 18);
+		v.UV2[0] = sqlite3_column_double(query, 19);
+		v.UV2[1] = sqlite3_column_double(query, 20);
 
-		v.WeightSet.Weights[1].BoneId = sqlite3_column_int(query, 19);
-		v.WeightSet.Weights[1].Weight = sqlite3_column_double(query, 20);
+		v.WeightSet.Weights[0].BoneId = sqlite3_column_int(query, 21);
+		v.WeightSet.Weights[0].Weight = sqlite3_column_double(query, 22);
 
-		v.WeightSet.Weights[2].BoneId = sqlite3_column_int(query, 21);
-		v.WeightSet.Weights[2].Weight = sqlite3_column_double(query, 22);
+		v.WeightSet.Weights[1].BoneId = sqlite3_column_int(query, 23);
+		v.WeightSet.Weights[1].Weight = sqlite3_column_double(query, 24);
 
-		v.WeightSet.Weights[3].BoneId = sqlite3_column_int(query, 23);
-		v.WeightSet.Weights[3].Weight = sqlite3_column_double(query, 24);
+		v.WeightSet.Weights[2].BoneId = sqlite3_column_int(query, 25);
+		v.WeightSet.Weights[2].Weight = sqlite3_column_double(query, 26);
+
+		v.WeightSet.Weights[3].BoneId = sqlite3_column_int(query, 27);
+		v.WeightSet.Weights[3].Weight = sqlite3_column_double(query, 28);
 
 		ttModel->MeshGroups[meshId]->Parts[partId]->Vertices.push_back(v);
 	}

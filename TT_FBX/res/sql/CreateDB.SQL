@@ -44,6 +44,12 @@ CREATE TABLE "vertices" (
 	"color_g"	REAL NOT NULL,
 	"color_b"	REAL NOT NULL,
 	"color_a"	REAL NOT NULL,
+	
+	-- Vertex Color
+	"color2_r"	REAL NOT NULL,
+	"color2_g"	REAL NOT NULL,
+	"color2_b"	REAL NOT NULL,
+	"color2_a"	REAL NOT NULL,
 
 	-- UV Coordinates
 	"uv_1_u"	REAL NOT NULL,
