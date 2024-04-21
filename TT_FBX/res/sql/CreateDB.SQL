@@ -66,6 +66,14 @@ CREATE TABLE "vertices" (
 	"bone_3_weight"		REAL,
 	"bone_4_id"			INTEGER,
 	"bone_4_weight"		REAL,
+	"bone_5_id"			INTEGER,
+	"bone_5_weight"		REAL,
+	"bone_6_id"			INTEGER,
+	"bone_6_weight"		REAL,
+	"bone_7_id"			INTEGER,
+	"bone_7_weight"		REAL,
+	"bone_8_id"			INTEGER,
+	"bone_8_weight"		REAL,
 
 	PRIMARY KEY("mesh","part","vertex_id")
 );

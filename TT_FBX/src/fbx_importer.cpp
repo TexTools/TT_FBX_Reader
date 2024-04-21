@@ -331,18 +331,6 @@ FbxVector2 FBXImporter::GetUV2(FbxMesh* const mesh, int index_id) {
 	return index == -1 ? def : uvs->GetDirectArray().GetAt(index);
 }
 
-// Get the raw uv2 value for a triangle index.
-FbxVector2 FBXImporter::GetUV3(FbxMesh* const mesh, int index_id) {
-	FbxVector2 def = FbxVector2(1, 0);
-	if (mesh->GetLayerCount() < 3) {
-		return def;
-	}
-	FbxLayer* layer = mesh->GetLayer(2);
-	FbxLayerElementUV* uvs = layer->GetUVs();
-	int index = GetDirectIndex(mesh, uvs, index_id);
-	return index == -1 ? def : uvs->GetDirectArray().GetAt(index);
-}
-
 // Gets the raw vertex color value for a triangle index.
 FbxColor FBXImporter::GetVertexColor(FbxMesh* const mesh, int index_id) {
 	FbxColor def = FbxColor(1, 1, 1, 1);
@@ -353,6 +341,65 @@ FbxColor FBXImporter::GetVertexColor(FbxMesh* const mesh, int index_id) {
 	FbxLayerElementVertexColor* layerElement = layer->GetVertexColors();
 	int index = GetDirectIndex(mesh, layerElement, index_id);
 	return index == -1 ? def : layerElement->GetDirectArray().GetAt(index);
+}
+
+// Gets the raw vertex color value for a triangle index.
+FbxColor FBXImporter::GetVertexColor2(FbxMesh* const mesh, int index_id) {
+	FbxColor def = FbxColor(0, 0, 0, 1);
+	if (mesh->GetLayerCount() < 1) {
+		return def;
+	}
+	auto layerCount = mesh->GetLayerCount();
+
+	// Scan all the layers above 0 for vertex color channels
+	
+	int colorsFound = 0;
+	for (int i = 0; i < layerCount; i++) {
+		FbxLayer* layer = mesh->GetLayer(i);
+		FbxLayerElementVertexColor* layerElement = layer->GetVertexColors();
+		if (layerElement == NULL) {
+			continue;
+		}
+		colorsFound++;
+		if (colorsFound == 2) {
+			int index = GetDirectIndex(mesh, layerElement, index_id);
+			return index == -1 ? def : layerElement->GetDirectArray().GetAt(index);
+		}
+	}
+
+	// We didn't find a vertex color layer... So we have to construct one from the extra UV Channels, 3DS Max style.
+
+	int texturesFound = 0;
+	for (int i = 0; i < layerCount; i++) {
+		FbxLayer* layer = mesh->GetLayer(i);
+		FbxLayerElementUV* uvs = layer->GetUVs();
+		if (uvs == NULL) {
+			continue;
+		}
+		texturesFound++;
+
+		// 3rd UV Channel is red-green
+		if (texturesFound == 3) {
+			int index = GetDirectIndex(mesh, uvs, index_id);
+			if (index != -1) {
+				auto uv = uvs->GetDirectArray().GetAt(index);
+				def[0] = uv[0];
+				def[1] = uv[1];
+			}
+		}
+		// 4th UV Channel is blue-alpha
+		if (texturesFound == 4) {
+			int index = GetDirectIndex(mesh, uvs, index_id);
+			if (index != -1) {
+				auto uv = uvs->GetDirectArray().GetAt(index);
+				def[2] = uv[0];
+				def[3] = uv[1];
+			}
+		}
+	}
+
+	return def;
+
 }
 
 // Retreives the shared bone Id for a given bone (added to the bone Id list if needed)
@@ -841,7 +888,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			myVert.Position = vertWorldPosition;
 			myVert.Normal = vertWorldNormal;
 			myVert.VertexColor = GetVertexColor(mesh, indexId);
-			myVert.VertexColor2 = FbxColor(0, 0, 0, 1);
+			myVert.VertexColor2 = GetVertexColor2(mesh, indexId);
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
 			myVert.WeightSet = weightSets[controlPointIndex];
@@ -918,8 +965,8 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	sqlite3_finalize(query);
 
 	// Load the Vertices into the SQLite DB.
-	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight)";
-	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,      ?14,      ?15,      ?16,      ?17,    ?18,    ?19,    ?20,    ?21,       ?22,           ?23,       ?24,           ?25,       ?26,           ?27,       ?28,           ?29)";
+	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight)";
+	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,      ?14,      ?15,      ?16,      ?17,    ?18,    ?19,    ?20,    ?21,       ?22,           ?23,       ?24,           ?25,       ?26,           ?27,       ?28,           ?29,       ?30,           ?31,       ?32,           ?33,       ?34,           ?35,       ?36,           ?37)";
 	query = MakeSqlStatement(insertStatement);
 	for (unsigned int i = 0; i < ttVertices.size(); i++) {
 		sqlite3_bind_int(query, 1, meshNum);
@@ -939,10 +986,10 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		sqlite3_bind_double(query, 12, ttVertices[i].VertexColor.mBlue);
 		sqlite3_bind_double(query, 13, ttVertices[i].VertexColor.mAlpha);
 
-		sqlite3_bind_double(query, 14, ttVertices[i].VertexColor.mRed);
-		sqlite3_bind_double(query, 15, ttVertices[i].VertexColor.mGreen);
-		sqlite3_bind_double(query, 16, ttVertices[i].VertexColor.mBlue);
-		sqlite3_bind_double(query, 17, ttVertices[i].VertexColor.mAlpha);
+		sqlite3_bind_double(query, 14, ttVertices[i].VertexColor2.mRed);
+		sqlite3_bind_double(query, 15, ttVertices[i].VertexColor2.mGreen);
+		sqlite3_bind_double(query, 16, ttVertices[i].VertexColor2.mBlue);
+		sqlite3_bind_double(query, 17, ttVertices[i].VertexColor2.mAlpha);
 
 		sqlite3_bind_double(query, 18, ttVertices[i].UV1[0]);
 		sqlite3_bind_double(query, 19, ttVertices[i].UV1[1]);
@@ -968,6 +1015,26 @@ void FBXImporter::SaveNode(FbxNode* node) {
 		if (ttVertices[i].WeightSet.Weights[3].BoneId >= 0) {
 			sqlite3_bind_int(query, 28, ttVertices[i].WeightSet.Weights[3].BoneId);
 			sqlite3_bind_double(query, 29, ttVertices[i].WeightSet.Weights[3].Weight);
+		}
+
+		if (ttVertices[i].WeightSet.Weights[4].BoneId >= 0) {
+			sqlite3_bind_int(query, 30, ttVertices[i].WeightSet.Weights[4].BoneId);
+			sqlite3_bind_double(query, 31, ttVertices[i].WeightSet.Weights[4].Weight);
+		}
+
+		if (ttVertices[i].WeightSet.Weights[5].BoneId >= 0) {
+			sqlite3_bind_int(query, 32, ttVertices[i].WeightSet.Weights[5].BoneId);
+			sqlite3_bind_double(query, 33, ttVertices[i].WeightSet.Weights[5].Weight);
+		}
+
+		if (ttVertices[i].WeightSet.Weights[6].BoneId >= 0) {
+			sqlite3_bind_int(query, 34, ttVertices[i].WeightSet.Weights[6].BoneId);
+			sqlite3_bind_double(query, 35, ttVertices[i].WeightSet.Weights[6].Weight);
+		}
+
+		if (ttVertices[i].WeightSet.Weights[7].BoneId >= 0) {
+			sqlite3_bind_int(query, 36, ttVertices[i].WeightSet.Weights[7].BoneId);
+			sqlite3_bind_double(query, 37, ttVertices[i].WeightSet.Weights[7].Weight);
 		}
 
 
