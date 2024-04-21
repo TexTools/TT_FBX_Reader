@@ -729,32 +729,52 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 	mesh->InitControlPoints(vertices.size());
 	mesh->InitNormals(vertices.size());
 
-	// Not sure what's up with this, but you have to specify by control point,
-	// then actually write the direct array by polygon index.
-	FbxGeometryElementVertexColor* colorElement = mesh->CreateElementVertexColor();
-	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
-	colorElement->SetReferenceMode(FbxLayerElement::EReferenceMode::eIndexToDirect);
+	// LAYER 0
+	auto* layer0 = mesh->GetLayer(0);
 
-	FbxGeometryElementVertexColor* color2Element = mesh->CreateElementVertexColor();
-	color2Element->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
-	color2Element->SetReferenceMode(FbxLayerElement::EReferenceMode::eIndexToDirect);
+	// Layer 1
+	auto* layer1 = mesh->GetLayer(mesh->CreateLayer());
 
-	FbxGeometryElementUV* uvElement = mesh->CreateElementUV("uv1");
-	uvElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	// Layer 2
+	auto* layer2 = mesh->GetLayer(mesh->CreateLayer());
 
-	// Createa  new layer and stick the UV2 element on it.
-	auto newLayerId = mesh->CreateLayer();
-	auto* layer2 = mesh->GetLayer(newLayerId);
-	auto* uv2Layer = FbxLayerElementUV::Create(mesh, "uv2");
+	// Layer 3
+	auto* layer3 = mesh->GetLayer(mesh->CreateLayer());
+
+	// Layer 3
+	auto* layer4 = mesh->GetLayer(mesh->CreateLayer());
+
+	auto* colorLayer = FbxLayerElementVertexColor::Create(mesh, "vc0");
+	colorLayer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer0->SetVertexColors(colorLayer);
+
+	auto* uvLayer = FbxLayerElementUV::Create(mesh, "uv0");
+	uvLayer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer1->SetUVs(uvLayer);
+
+	auto* uv2Layer = FbxLayerElementUV::Create(mesh, "uv1");
 	uv2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 	layer2->SetUVs(uv2Layer);
+
+
+	auto* color2Layer = FbxLayerElementVertexColor::Create(mesh, "vc1");
+	color2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer3->SetUVs(uv2Layer);
+
+
+
 
 	for (int i = 0; i < vertices.size(); i++) {
 		TTVertex v = vertices[i];
 
 		mesh->SetControlPointAt(v.Position, v.Normal, i);
-		uvElement->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
+
+		colorLayer->GetDirectArray().Add(v.VertexColor);
+		uvLayer->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
+
 		uv2Layer->GetDirectArray().Add(FbxVector2(v.UV2[0], v.UV2[1]));
+		color2Layer->GetDirectArray().Add(v.VertexColor2);
+
 	}
 
 	for (int i = 0; i < indices.size(); i += 3) {
@@ -767,19 +787,6 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 		TTVertex vert1 = vertices[indices[i]];
 		TTVertex vert2 = vertices[indices[i + 1]];
 		TTVertex vert3 = vertices[indices[i + 2]];
-		colorElement->GetDirectArray().Add(vert1.VertexColor);
-		colorElement->GetDirectArray().Add(vert2.VertexColor);
-		colorElement->GetDirectArray().Add(vert3.VertexColor);
-		colorElement->GetIndexArray().Add(i);
-		colorElement->GetIndexArray().Add(i + 1);
-		colorElement->GetIndexArray().Add(i + 2);
-
-		color2Element->GetDirectArray().Add(vert1.VertexColor2);
-		color2Element->GetDirectArray().Add(vert2.VertexColor2);
-		color2Element->GetDirectArray().Add(vert3.VertexColor2);
-		color2Element->GetIndexArray().Add(i);
-		color2Element->GetIndexArray().Add(i + 1);
-		color2Element->GetIndexArray().Add(i + 2);
 
 
 	}
