@@ -375,7 +375,7 @@ void DBConverter::ReadDB() {
 	sqlite3_finalize(query);
 
 
-	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight from vertices order by mesh asc, part asc, vertex_id asc");
+	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight from vertices order by mesh asc, part asc, vertex_id asc");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int partId = sqlite3_column_int(query, 1);
@@ -418,6 +418,18 @@ void DBConverter::ReadDB() {
 		v.WeightSet.Weights[3].BoneId = sqlite3_column_int(query, 27);
 		v.WeightSet.Weights[3].Weight = sqlite3_column_double(query, 28);
 
+		v.WeightSet.Weights[4].BoneId = sqlite3_column_int(query, 29);
+		v.WeightSet.Weights[4].Weight = sqlite3_column_double(query, 30);
+
+		v.WeightSet.Weights[5].BoneId = sqlite3_column_int(query, 31);
+		v.WeightSet.Weights[5].Weight = sqlite3_column_double(query, 32);
+
+		v.WeightSet.Weights[6].BoneId = sqlite3_column_int(query, 33);
+		v.WeightSet.Weights[6].Weight = sqlite3_column_double(query, 34);
+
+		v.WeightSet.Weights[7].BoneId = sqlite3_column_int(query, 35);
+		v.WeightSet.Weights[7].Weight = sqlite3_column_double(query, 36);
+
 		ttModel->MeshGroups[meshId]->Parts[partId]->Vertices.push_back(v);
 	}
 	sqlite3_finalize(query);
@@ -451,16 +463,13 @@ void DBConverter::ReadDB() {
 		v.UV1 = rep.UV1;
 		v.UV2 = rep.UV2;
 
-		v.WeightSet.Weights[0] = rep.WeightSet.Weights[0];
-		v.WeightSet.Weights[1] = rep.WeightSet.Weights[1];
-		v.WeightSet.Weights[2] = rep.WeightSet.Weights[2];
-		v.WeightSet.Weights[3] = rep.WeightSet.Weights[3];
-
-		v.VertexColor[0] = rep.VertexColor[0];
-		v.VertexColor[1] = rep.VertexColor[1];
-		v.VertexColor[2] = rep.VertexColor[2];
-		v.VertexColor[3] = rep.VertexColor[3];
-
+		for (int i = 0; i < _TTW_Max_Weights; i++) {
+			v.WeightSet.Weights[i] = rep.WeightSet.Weights[i];
+			if (i < 4) {
+				v.VertexColor[i] = rep.VertexColor[i];
+				v.VertexColor2[i] = rep.VertexColor2[i];
+			}
+		}
 
 		shape->VertexReplacements.insert({vertexId, v});
 	}
@@ -726,6 +735,10 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 	colorElement->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
 	colorElement->SetReferenceMode(FbxLayerElement::EReferenceMode::eIndexToDirect);
 
+	FbxGeometryElementVertexColor* color2Element = mesh->CreateElementVertexColor();
+	color2Element->SetMappingMode(FbxLayerElement::EMappingMode::eByPolygonVertex);
+	color2Element->SetReferenceMode(FbxLayerElement::EReferenceMode::eIndexToDirect);
+
 	FbxGeometryElementUV* uvElement = mesh->CreateElementUV("uv1");
 	uvElement->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 
@@ -757,49 +770,21 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 		colorElement->GetDirectArray().Add(vert1.VertexColor);
 		colorElement->GetDirectArray().Add(vert2.VertexColor);
 		colorElement->GetDirectArray().Add(vert3.VertexColor);
-
 		colorElement->GetIndexArray().Add(i);
 		colorElement->GetIndexArray().Add(i + 1);
 		colorElement->GetIndexArray().Add(i + 2);
+
+		color2Element->GetDirectArray().Add(vert1.VertexColor2);
+		color2Element->GetDirectArray().Add(vert2.VertexColor2);
+		color2Element->GetDirectArray().Add(vert3.VertexColor2);
+		color2Element->GetIndexArray().Add(i);
+		color2Element->GetIndexArray().Add(i + 1);
+		color2Element->GetIndexArray().Add(i + 2);
+
+
 	}
 
 	return mesh;
-}
-
-void DBConverter::RepopulateMesh(FbxMesh* mesh, std::vector<TTVertex> vertices, std::vector<int> indices, std::string meshName, FbxNode* parent, FbxSurfaceMaterial* material) {
-
-	FbxGeometryElementVertexColor* colorElement = mesh->GetElementVertexColor();
-	FbxGeometryElementUV* uvElement = mesh->GetElementUV("uv1");
-	FbxGeometryElementUV* uv2Layer = mesh->GetElementUV("uv2");
-	auto normalLayer = mesh->GetElementNormal();
-
-	for (int i = 0; i < vertices.size(); i++) {
-		TTVertex v = vertices[i];
-
-		//mesh->SetControlPointAt(v.Position, v.Normal, i);
-		normalLayer->GetDirectArray()[i] = FbxVector4(v.Normal[0], v.Normal[1], v.Normal[2]);
-		uvElement->GetDirectArray()[i] = (FbxVector2(v.UV1[0], v.UV1[1]));
-		uv2Layer->GetDirectArray()[i] = (FbxVector2(v.UV2[0], v.UV2[1]));
-	}
-
-	for (int i = 0; i < indices.size(); i += 3) {
-		mesh->BeginPolygon();
-		mesh->AddPolygon(indices[i]);
-		mesh->AddPolygon(indices[i + 1]);
-		mesh->AddPolygon(indices[i + 2]);
-		mesh->EndPolygon();
-
-		TTVertex vert1 = vertices[indices[i]];
-		TTVertex vert2 = vertices[indices[i + 1]];
-		TTVertex vert3 = vertices[indices[i + 2]];
-		colorElement->GetDirectArray().Add(vert1.VertexColor);
-		colorElement->GetDirectArray().Add(vert2.VertexColor);
-		colorElement->GetDirectArray().Add(vert3.VertexColor);
-
-		colorElement->GetIndexArray().Add(i);
-		colorElement->GetIndexArray().Add(i + 1);
-		colorElement->GetIndexArray().Add(i + 2);
-	}
 }
 
 FbxShape* DBConverter::MakeShape(std::vector<TTVertex> vertices, std::string meshName) {
@@ -905,7 +890,7 @@ void DBConverter::AddPartToScene(TTPart* part, FbxNode* parent) {
 			auto v = part->Vertices[vi];
 
 			// For every weight set.
-			for (int wi = 0; wi < 4; wi++) {
+			for (int wi = 0; wi < _TTW_Max_Weights; wi++) {
 				auto set = v.WeightSet.Weights[wi];
 
 				// If we're the same bone and we have weight.

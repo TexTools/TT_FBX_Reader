@@ -4,7 +4,7 @@
 #include <string>
 
 #include <eigen>
-#define _TTW_Max_Weights 4
+#define _TTW_Max_Weights 8
 
 // An individual TTWeight
 struct TTWeight {
