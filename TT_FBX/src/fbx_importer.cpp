@@ -7,6 +7,8 @@ const char* dbPath = "result.db";
 const std::regex meshRegex(".*[_ ^][0-9]+[\\.\\-]?([0-9]+)?$");
 const std::regex extractMeshInfoRegex(".*[_ ^]([0-9]+)[\\.\\-]?([0-9]+)?$");
 
+// Below this value the weight will be rounded down to 0 anyways in FFXIV.
+float _MINIMUM_WEIGHT_VALUE = ( 1.0f / 255.0f ) * 0.5f;
 
 std::string utf8_encode(const std::wstring& wstr)
 {
@@ -670,6 +672,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			int affectedVertCount = skin->GetCluster(i)->GetControlPointIndicesCount();
 
 
+
 			if (affectedVertCount == 0) continue;
 
 			int boneIdx = GetBoneId(meshNum, name);
@@ -678,8 +681,10 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			for (int vi = 0; vi < affectedVertCount; vi++) {
 				int cpIndex = skin->GetCluster(i)->GetControlPointIndices()[vi];
 				double weight = skin->GetCluster(i)->GetControlPointWeights()[vi];
-				if (cpIndex < weightSets.size()) {
-					weightSets[cpIndex].Add(boneIdx, weight);
+				if (weight > _MINIMUM_WEIGHT_VALUE) {
+					if (cpIndex < weightSets.size()) {
+						weightSets[cpIndex].Add(boneIdx, weight);
+					}
 				}
 			}
 		}
