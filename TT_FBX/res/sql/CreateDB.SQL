@@ -1,4 +1,4 @@
-﻿-- Meta table for storing any meta level information not already obviously handled by the table structure.
+-- Meta table for storing any meta level information not already obviously handled by the table structure.
 -- Ex. Author, path to original file, etc.
 CREATE TABLE "meta" (
 	"key" TEXT NOT NULL UNIQUE,
