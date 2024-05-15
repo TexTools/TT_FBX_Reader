@@ -1,4 +1,4 @@
--- Meta table for storing any meta level information not already obviously handled by the table structure.
+﻿-- Meta table for storing any meta level information not already obviously handled by the table structure.
 -- Ex. Author, path to original file, etc.
 CREATE TABLE "meta" (
 	"key" TEXT NOT NULL UNIQUE,
@@ -45,7 +45,7 @@ CREATE TABLE "vertices" (
 	"color_b"	REAL NOT NULL,
 	"color_a"	REAL NOT NULL,
 	
-	-- Vertex Color
+	-- Vertex Color 2
 	"color2_r"	REAL NOT NULL,
 	"color2_g"	REAL NOT NULL,
 	"color2_b"	REAL NOT NULL,
@@ -106,6 +106,7 @@ CREATE TABLE "meshes" (
 	"model" INTEGER NOT NULL,
 	"material_id" INTEGER,
 	"name"   TEXT,
+	"type"   TEXT,
 
 	Primary KEY("mesh")
 );
@@ -116,6 +117,7 @@ CREATE TABLE "parts" (
 	"mesh"	INTEGER NOT NULL,
 	"part"   INTEGER NOT NULL,
 	"name"   TEXT,
+	"attributes" TEXT,
 
 	Primary KEY("mesh", "part")
 );

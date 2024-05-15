@@ -140,6 +140,7 @@ xcopy /y  "$(ProjectDir)res\sql\**" "$(OutDir)sql\"</Command>
       <AdditionalIncludeDirectories>$(SolutionDir)external\fbx_sdk\include\;$(SolutionDir)external\sqlite\;$(SolutionDir)external\eigen\;D:\dev\TT_FBX\TT_FBX\src</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
