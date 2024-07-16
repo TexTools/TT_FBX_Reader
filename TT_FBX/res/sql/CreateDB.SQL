@@ -39,6 +39,16 @@ CREATE TABLE "vertices" (
 	"normal_y"  REAL NOT NULL,
 	"normal_z"	REAL NOT NULL,
 	
+	-- Binormal
+	"binormal_x"	REAL NOT NULL,
+	"binormal_y"	REAL NOT NULL,
+	"binormal_z"	REAL NOT NULL,
+	
+	-- Tangent
+	"tangent_x"	REAL NOT NULL,
+	"tangent_y"	REAL NOT NULL,
+	"tangent_z"	REAL NOT NULL,
+	
 	-- Vertex Color
 	"color_r"	REAL NOT NULL,
 	"color_g"	REAL NOT NULL,
@@ -56,6 +66,8 @@ CREATE TABLE "vertices" (
 	"uv_1_v"	REAL NOT NULL,
 	"uv_2_u"	REAL NOT NULL,
 	"uv_2_v"	REAL NOT NULL,
+	"uv_3_u"	REAL NOT NULL,
+	"uv_3_v"	REAL NOT NULL,
 
 	-- Bone Weights
 	"bone_1_id"			INTEGER,

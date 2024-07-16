@@ -87,22 +87,29 @@ public:
 
     FbxVector4 Position;
     FbxVector4 Normal;
+    FbxVector4 Binormal;
+    FbxVector4 Tangent;
     FbxVector2 UV1;
     FbxVector2 UV2;
+    FbxVector2 UV3;
     FbxColor VertexColor;
     FbxColor VertexColor2;
     TTWeightSet WeightSet;
 
     int UV1Index;
     int UV2Index;
+    int UV3Index;
 
 
     // Overload equality to test memberwise.
     friend bool operator== (const TTVertex& a, const TTVertex& b) {
         if (a.Position != b.Position) return false;
         if (a.Normal != b.Normal) return false;
+        if (a.Binormal != b.Binormal) return false;
+        if (a.Tangent != b.Tangent) return false;
         if (a.UV1 != b.UV1) return false;
         if (a.UV2 != b.UV2) return false;
+        if (a.UV3 != b.UV3) return false;
         if (a.VertexColor != b.VertexColor) return false;
         if (a.VertexColor2 != b.VertexColor2) return false;
         if (a.WeightSet != b.WeightSet) return false;
@@ -110,6 +117,7 @@ public:
         // Compare UVs by index as well.
         if (a.UV1Index != b.UV1Index) return false;
         if (a.UV2Index != b.UV2Index) return false;
+        if (a.UV3Index != b.UV3Index) return false;
 
 
 

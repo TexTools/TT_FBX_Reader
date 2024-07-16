@@ -40,10 +40,14 @@ class FBXImporter {
 	int GetDirectIndex(FbxMesh* mesh, FbxLayerElementTemplate<FbxColor>* layerElement, int index_id);
 	FbxVector4 GetPosition(FbxMesh* const mesh, int index_id);
 	FbxVector4 GetNormal(FbxMesh* const mesh, int index_id);
+	FbxVector4 GetBinormal(FbxMesh* const mesh, int index_id);
+	FbxVector4 GetTangent(FbxMesh* const mesh, int index_id);
 	FbxVector2 GetUV1(FbxMesh* const mesh, int index_id);
 	int GetUV1Index(FbxMesh* const mesh, int index_id);
 	FbxVector2 GetUV2(FbxMesh* const mesh, int index_id);
 	int GetUV2Index(FbxMesh* const mesh, int index_id);
+	FbxVector2 GetUV3(FbxMesh* const mesh, int index_id);
+	int GetUV3Index(FbxMesh* const mesh, int index_id);
 	FbxColor GetVertexColor(FbxMesh* const mesh, int index_id);
 	FbxColor GetVertexColor2(FbxMesh* const mesh, int index_id);
 	int GetBoneId(int mesh, std::string boneName);

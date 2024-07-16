@@ -379,7 +379,7 @@ void DBConverter::ReadDB() {
 	sqlite3_finalize(query);
 
 
-	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight from vertices order by mesh asc, part asc, vertex_id asc");
+	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight, binormal_x, binormal_y, binormal_z, tangent_x, tangent_y, tangent_z, uv_3_u, uv_3_v from vertices order by mesh asc, part asc, vertex_id asc");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int partId = sqlite3_column_int(query, 1);
@@ -434,6 +434,17 @@ void DBConverter::ReadDB() {
 		v.WeightSet.Weights[7].BoneId = sqlite3_column_int(query, 35);
 		v.WeightSet.Weights[7].Weight = sqlite3_column_double(query, 36);
 
+		v.Binormal[0] = sqlite3_column_double(query, 37);
+		v.Binormal[1] = sqlite3_column_double(query, 38);
+		v.Binormal[2] = sqlite3_column_double(query, 39);
+
+		v.Tangent[0] = sqlite3_column_double(query, 40);
+		v.Tangent[1] = sqlite3_column_double(query, 41);
+		v.Tangent[2] = sqlite3_column_double(query, 42);
+
+		v.UV3[0] = sqlite3_column_double(query, 43);
+		v.UV3[1] = sqlite3_column_double(query, 44);
+
 		ttModel->MeshGroups[meshId]->Parts[partId]->Vertices.push_back(v);
 	}
 	sqlite3_finalize(query);
@@ -464,8 +475,13 @@ void DBConverter::ReadDB() {
 
 		// Copy over other values for convenience.
 		v.Normal = rep.Normal;
+		v.Binormal = rep.Normal;
+		v.Tangent = rep.Tangent;
+		v.VertexColor = rep.VertexColor;
+		v.VertexColor2 = rep.VertexColor2;
 		v.UV1 = rep.UV1;
 		v.UV2 = rep.UV2;
+		v.UV3 = rep.UV3;
 
 		for (int i = 0; i < _TTW_Max_Weights; i++) {
 			v.WeightSet.Weights[i] = rep.WeightSet.Weights[i];
@@ -760,6 +776,10 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 	uv2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 	layer1->SetUVs(uv2Layer);
 
+	auto* uv3Layer = FbxLayerElementUV::Create(mesh, "uv2");
+	uv3Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer2->SetUVs(uv3Layer);
+
 
 	FbxLayerElementVertexColor* color2Layer = 0;
 	FbxLayerElementUV* color2Layer_rg = 0;
@@ -770,6 +790,7 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 		layer1->SetVertexColors(color2Layer);
 	}
 	else {
+		/*
 		color2Layer_rg = FbxLayerElementUV::Create(mesh, "uv2_vc2_rg");
 		color2Layer_rg->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 		layer3->SetUVs(color2Layer_rg);
@@ -777,6 +798,7 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 		color2Layer_ba = FbxLayerElementUV::Create(mesh, "uv2_vc2_ba");
 		color2Layer_ba->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 		layer4->SetUVs(color2Layer_ba);
+		*/
 	}
 
 
@@ -792,15 +814,17 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 
 		colorLayer->GetDirectArray().Add(v.VertexColor);
 		uvLayer->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
-
 		uv2Layer->GetDirectArray().Add(FbxVector2(v.UV2[0], v.UV2[1]));
+		uv3Layer->GetDirectArray().Add(FbxVector2(v.UV3[0], v.UV3[1]));
 
 		if (_UseColor2Channel) {
 			color2Layer->GetDirectArray().Add(v.VertexColor2);
 		}
 		else {
+			/*
 			color2Layer_rg->GetDirectArray().Add(FbxVector2(v.VertexColor2[0], v.VertexColor2[1]));
 			color2Layer_ba->GetDirectArray().Add(FbxVector2(v.VertexColor2[1], v.VertexColor2[2]));
+			*/
 		}
 	}
 
