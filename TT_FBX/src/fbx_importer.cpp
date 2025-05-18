@@ -788,7 +788,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 					FbxShape* fbxShape = channel->GetTargetShape(0);
 
 					auto name = std::string(fbxShape->GetName());
-					if (name.rfind("shp_", 0) == 0) {
+					if (name.rfind("shp", 0) == 0) {
 						// No-Op. Handled Later.
 					}
 					else {
@@ -860,7 +860,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 					FbxShape* fbxShape = channel->GetTargetShape(0);
 
 					auto name = std::string(fbxShape->GetName());
-					if (name.rfind("shp_", 0) == 0) {
+					if (name.rfind("shp", 0) == 0) {
 						auto skip = false;
 						for (int i = 0; i < ShapeParts.size(); i++) {
 							if (ShapeParts[i]->Name == name) {
