@@ -379,7 +379,7 @@ void DBConverter::ReadDB() {
 	sqlite3_finalize(query);
 
 
-	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight, binormal_x, binormal_y, binormal_z, tangent_x, tangent_y, tangent_z, uv_3_u, uv_3_v from vertices order by mesh asc, part asc, vertex_id asc");
+	query = MakeSqlStatement("select mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight, binormal_x, binormal_y, binormal_z, tangent_x, tangent_y, tangent_z, uv_3_u, uv_3_v, flow_u, flow_v from vertices order by mesh asc, part asc, vertex_id asc");
 	while (GetRow(query)) {
 		int meshId = sqlite3_column_int(query, 0);
 		int partId = sqlite3_column_int(query, 1);
@@ -445,6 +445,12 @@ void DBConverter::ReadDB() {
 		v.UV3[0] = sqlite3_column_double(query, 43);
 		v.UV3[1] = sqlite3_column_double(query, 44);
 
+		v.VertexColor3[0] = (sqlite3_column_double(query, 45) + 1) / 2.0f;
+		v.VertexColor3[1] = (sqlite3_column_double(query, 46) + 1) / 2.0f;
+		v.VertexColor3[2] = 1;
+		v.VertexColor3[3] = 1;
+
+
 		ttModel->MeshGroups[meshId]->Parts[partId]->Vertices.push_back(v);
 	}
 	sqlite3_finalize(query);
@@ -475,10 +481,11 @@ void DBConverter::ReadDB() {
 
 		// Copy over other values for convenience.
 		v.Normal = rep.Normal;
-		v.Binormal = rep.Normal;
+		v.Binormal = rep.Binormal;
 		v.Tangent = rep.Tangent;
 		v.VertexColor = rep.VertexColor;
 		v.VertexColor2 = rep.VertexColor2;
+		v.VertexColor3 = rep.VertexColor3;
 		v.UV1 = rep.UV1;
 		v.UV2 = rep.UV2;
 		v.UV3 = rep.UV3;
@@ -488,6 +495,7 @@ void DBConverter::ReadDB() {
 			if (i < 4) {
 				v.VertexColor[i] = rep.VertexColor[i];
 				v.VertexColor2[i] = rep.VertexColor2[i];
+				v.VertexColor3[i] = rep.VertexColor3[i];
 			}
 		}
 
@@ -748,6 +756,10 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 
 	mesh->InitControlPoints(vertices.size());
 	mesh->InitNormals(vertices.size());
+	mesh->InitBinormals(vertices.size());
+	mesh->InitTangents(vertices.size());
+
+	//binEl[0] 
 
 	// LAYER 0
 	auto* layer0 = mesh->GetLayer(0);
@@ -782,36 +794,33 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 
 
 	FbxLayerElementVertexColor* color2Layer = 0;
+	FbxLayerElementVertexColor* color3Layer = 0;
 	FbxLayerElementUV* color2Layer_rg = 0;
 	FbxLayerElementUV* color2Layer_ba = 0;
 	if (_UseColor2Channel) {
 		color2Layer = FbxLayerElementVertexColor::Create(mesh, "vc1");
 		color2Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
 		layer1->SetVertexColors(color2Layer);
-	}
-	else {
-		/*
-		color2Layer_rg = FbxLayerElementUV::Create(mesh, "uv2_vc2_rg");
-		color2Layer_rg->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
-		layer3->SetUVs(color2Layer_rg);
 
-		color2Layer_ba = FbxLayerElementUV::Create(mesh, "uv2_vc2_ba");
-		color2Layer_ba->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
-		layer4->SetUVs(color2Layer_ba);
-		*/
+		color3Layer = FbxLayerElementVertexColor::Create(mesh, "vc2");
+		color3Layer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+		layer2->SetVertexColors(color3Layer);
 	}
 
+	auto* binormalLayer = FbxLayerElementBinormal::Create(mesh, "bn");
+	binormalLayer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer0->SetBinormals(binormalLayer);
 
-
-
-
-
+	auto* tangentLayer = FbxLayerElementTangent::Create(mesh, "bn");
+	tangentLayer->SetMappingMode(FbxLayerElement::EMappingMode::eByControlPoint);
+	layer0->SetTangents(tangentLayer);
 
 	for (int i = 0; i < vertices.size(); i++) {
 		TTVertex v = vertices[i];
 
 		mesh->SetControlPointAt(v.Position, v.Normal, i);
-
+		binormalLayer->GetDirectArray().Add(v.Binormal);
+		tangentLayer->GetDirectArray().Add(v.Tangent);
 		colorLayer->GetDirectArray().Add(v.VertexColor);
 		uvLayer->GetDirectArray().Add(FbxVector2(v.UV1[0], v.UV1[1]));
 		uv2Layer->GetDirectArray().Add(FbxVector2(v.UV2[0], v.UV2[1]));
@@ -819,12 +828,7 @@ FbxMesh* DBConverter::MakeMesh(std::vector<TTVertex> vertices, std::vector<int> 
 
 		if (_UseColor2Channel) {
 			color2Layer->GetDirectArray().Add(v.VertexColor2);
-		}
-		else {
-			/*
-			color2Layer_rg->GetDirectArray().Add(FbxVector2(v.VertexColor2[0], v.VertexColor2[1]));
-			color2Layer_ba->GetDirectArray().Add(FbxVector2(v.VertexColor2[1], v.VertexColor2[2]));
-			*/
+			color3Layer->GetDirectArray().Add(v.VertexColor3);
 		}
 	}
 

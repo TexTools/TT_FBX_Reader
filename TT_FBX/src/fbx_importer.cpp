@@ -419,41 +419,34 @@ FbxColor FBXImporter::GetVertexColor2(FbxMesh* const mesh, int index_id) {
 		}
 	}
 
-	// We didn't find a vertex color layer... So we have to construct one from the extra UV Channels, 3DS Max style.
+	return def;
+}
 
-	/*
-	int texturesFound = 0;
+// Gets the raw vertex color value for a triangle index.
+FbxColor FBXImporter::GetVertexColor3(FbxMesh* const mesh, int index_id) {
+	FbxColor def = FbxColor(0.5, 0.5, 1, 1);
+	if (mesh->GetLayerCount() < 2) {
+		return def;
+	}
+	auto layerCount = mesh->GetLayerCount();
+
+	// Scan all the layers above 0 for vertex color channels
+
+	int colorsFound = 0;
 	for (int i = 0; i < layerCount; i++) {
 		FbxLayer* layer = mesh->GetLayer(i);
-		FbxLayerElementUV* uvs = layer->GetUVs();
-		if (uvs == NULL) {
+		FbxLayerElementVertexColor* layerElement = layer->GetVertexColors();
+		if (layerElement == NULL) {
 			continue;
 		}
-		texturesFound++;
-
-		// 3rd UV Channel is red-green
-		if (texturesFound == 3) {
-			int index = GetDirectIndex(mesh, uvs, index_id);
-			if (index != -1) {
-				auto uv = uvs->GetDirectArray().GetAt(index);
-				def[0] = uv[0];
-				def[1] = uv[1];
-			}
-		}
-		// 4th UV Channel is blue-alpha
-		if (texturesFound == 4) {
-			int index = GetDirectIndex(mesh, uvs, index_id);
-			if (index != -1) {
-				auto uv = uvs->GetDirectArray().GetAt(index);
-				def[2] = uv[0];
-				def[3] = uv[1];
-			}
+		colorsFound++;
+		if (colorsFound == 3) {
+			int index = GetDirectIndex(mesh, layerElement, index_id);
+			def = index == -1 ? def : layerElement->GetDirectArray().GetAt(index);
 		}
 	}
-	*/
 
 	return def;
-
 }
 
 // Retreives the shared bone Id for a given bone (added to the bone Id list if needed)
@@ -939,8 +932,10 @@ void FBXImporter::SaveNode(FbxNode* node) {
 
 			
 			auto vertWorldNormal = normalMatri.MultT(GetNormal(mesh, indexId));
-			auto vertWorldBinormal = normalMatri.MultT(GetBinormal(mesh, indexId));
-			auto vertWorldTangent = normalMatri.MultT(GetTangent(mesh, indexId));
+			auto bin = GetBinormal(mesh, indexId);
+			auto tan = GetTangent(mesh, indexId);
+			auto vertWorldBinormal = worldTransform.MultT(bin);
+			auto vertWorldTangent = worldTransform.MultT(tan);
 
 			//auto localNormal = GetNormal(mesh, indexId);
 
@@ -954,6 +949,7 @@ void FBXImporter::SaveNode(FbxNode* node) {
 			myVert.Tangent = vertWorldTangent;
 			myVert.VertexColor = GetVertexColor(mesh, indexId);
 			myVert.VertexColor2 = GetVertexColor2(mesh, indexId);
+			myVert.VertexColor3 = GetVertexColor3(mesh, indexId);
 			myVert.UV1 = GetUV1(mesh, indexId);
 			myVert.UV2 = GetUV2(mesh, indexId);
 			myVert.UV3 = GetUV3(mesh, indexId);
@@ -1032,8 +1028,8 @@ void FBXImporter::SaveNode(FbxNode* node) {
 	sqlite3_finalize(query);
 
 	// Load the Vertices into the SQLite DB.
-	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight, binormal_x, binormal_y, binormal_z, tangent_x, tangent_y, tangent_z, uv_3_u, uv_3_v)";
-	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,      ?14,      ?15,      ?16,      ?17,    ?18,    ?19,    ?20,    ?21,       ?22,           ?23,       ?24,           ?25,       ?26,           ?27,       ?28,           ?29,       ?30,           ?31,       ?32,           ?33,       ?34,           ?35,       ?36,           ?37,        $38,        $39,        $40,       $41,       $42,       $43,    $44,    $45)";
+	insertStatement = "insert into vertices (mesh, part, vertex_id, position_x, position_y, position_z, normal_x, normal_y, normal_z, color_r, color_g, color_b, color_a, color2_r, color2_g, color2_b, color2_a, uv_1_u, uv_1_v, uv_2_u, uv_2_v, bone_1_id, bone_1_weight, bone_2_id, bone_2_weight, bone_3_id, bone_3_weight, bone_4_id, bone_4_weight, bone_5_id, bone_5_weight, bone_6_id, bone_6_weight, bone_7_id, bone_7_weight, bone_8_id, bone_8_weight, binormal_x, binormal_y, binormal_z, tangent_x, tangent_y, tangent_z, uv_3_u, uv_3_v, flow_u, flow_v)";
+	insertStatement += "			 values(   ?1,   ?2,        ?3,         ?4,         ?5,         ?6,       ?7,       ?8,       ?9,     ?10,     ?11,     ?12,     ?13,      ?14,      ?15,      ?16,      ?17,    ?18,    ?19,    ?20,    ?21,       ?22,           ?23,       ?24,           ?25,       ?26,           ?27,       ?28,           ?29,       ?30,           ?31,       ?32,           ?33,       ?34,           ?35,       ?36,           ?37,        $38,        $39,        $40,       $41,       $42,       $43,    $44,    $45,    $46,    $47)";
 	query = MakeSqlStatement(insertStatement);
 	for (unsigned int i = 0; i < ttVertices.size(); i++) {
 		sqlite3_bind_int(query, 1, meshNum);
@@ -1114,6 +1110,9 @@ void FBXImporter::SaveNode(FbxNode* node) {
 
 		sqlite3_bind_double(query, 44, ttVertices[i].UV3[0]);
 		sqlite3_bind_double(query, 45, ttVertices[i].UV3[1]);
+
+		sqlite3_bind_double(query, 46, (ttVertices[i].VertexColor3[0] * 2) - 1.0f);
+		sqlite3_bind_double(query, 47, (ttVertices[i].VertexColor3[1] *2) - 1.0f);
 
 		RunSql(query);
 	}
